@@ -1804,7 +1804,14 @@ const state = {
   pendingFly: null,
   flyAttempts: 0,
 
+  // timed reveal (experimental; persisted per puzzle)
+  trElapsedMs: 0,
+  trStage: 0,
+  trPickActive: false,
+  trLocked: {},
+
   // Classic-only: show grid colours only while press-holding a trigram
+
   classicHoldColors: false,
   classicHoldPending: false,
   classicHoldPointerId: null,
@@ -1923,17 +1930,20 @@ function renderSmart(){
 
   // Persist in-progress state 
   if(!state.finished && !state.drag){
+    const hasTimedRevealState =
+      !!(state.trStage || state.trElapsedMs || state.trPickActive) ||
+      (state.trLocked && typeof state.trLocked === "object" && Object.keys(state.trLocked).length);
+
     const meaningful =
       !!state.assist ||
       !!(state.hintsUsed && (state.hintsUsed.w1 || state.hintsUsed.w2 || state.hintsUsed.extras)) ||
       !!(state.placed && (state.placed.w1 || state.placed.w2)) ||
-      !!(state.singles && state.singles.length);
+      !!(state.singles && state.singles.length) ||
+      hasTimedRevealState;
 
     if(meaningful) saveInProgressForCurrentPuzzle();
   }
 
-  requestAnimationFrame(updateHintTrackPlacement);
-}
 
 
 
@@ -2151,12 +2161,18 @@ function saveInProgressForCurrentPuzzle(){
   const hasAnyLetters = gridChars.some(ch => ch && ch !== "");
 
   // Determine whether we have anything meaningful to save
+  const hasTimedRevealState =
+    !!(state.trStage || state.trElapsedMs || state.trPickActive) ||
+    (state.trLocked && typeof state.trLocked === "object" && Object.keys(state.trLocked).length);
+
   const somethingToSave =
     hasAnyLetters ||
     state.hintsUsed.w1 ||
     state.hintsUsed.w2 ||
     state.hintsUsed.extras ||
-    state.assist;  // Assist mode on counts as meaningful state
+    state.assist ||  // Assist mode on counts as meaningful state
+    hasTimedRevealState;
+
 
   if(!somethingToSave){
     // Nothing typed, nothing hinted → clear progress
@@ -2182,9 +2198,27 @@ function saveInProgressForCurrentPuzzle(){
       (typeof state.effortAtSegmentStart === "number" ? state.effortAtSegmentStart : 0),
     wrongCheckCountAtSegmentStart:
       (typeof state.wrongCheckCountAtSegmentStart === "number" ? state.wrongCheckCountAtSegmentStart : 0),
+    };
+
+  // Timed reveal snapshot (wired up in later steps)
+  const locked = {};
+  if(state.trLocked && typeof state.trLocked === "object"){
+    for(const [k,v] of Object.entries(state.trLocked)){
+      const idx = parseInt(k, 10);
+      if(!Number.isFinite(idx) || idx < 0 || idx >= n) continue;
+      const ch = String(v || "").toLowerCase();
+      if(ch && isAlpha(ch)) locked[String(idx)] = ch[0];
+    }
+  }
+  const timedReveal = {
+    elapsedMs: Math.max(0, Math.round(state.trElapsedMs || 0)),
+    stage: clamp(state.trStage || 0, 0, 9),
+    pickActive: !!state.trPickActive,
+    locked
   };
 
   data.progress[id] = {
+
     puzzleIndex: state.i,
     hintsUsed: {
       w1: !!(state.hintsUsed && state.hintsUsed.w1),
@@ -2193,7 +2227,8 @@ function saveInProgressForCurrentPuzzle(){
     },
     hintCount: clamp(state.hintCount || 0, 0, 3),
     assistOn: !!state.assist,
-    grid: gridChars,        // letters
+    timedReveal,
+    grid: gridChars,
     focusIdx: focus,
     metrics,
     ts: Date.now()
@@ -2269,7 +2304,28 @@ function applyStoredProgressToCurrentPuzzle(){
   // If no metrics: we keep whatever resetAllForPuzzle()/skillResetForPuzzle set up,
   // which is a clean baseline for this puzzle.
 
+  // ---- Restore timed reveal state if present ----
+  const tr = saved.timedReveal;
+  state.trElapsedMs = (tr && typeof tr.elapsedMs === "number" && Number.isFinite(tr.elapsedMs))
+    ? Math.max(0, Math.round(tr.elapsedMs))
+    : 0;
+  state.trStage = (tr && typeof tr.stage === "number" && Number.isFinite(tr.stage))
+    ? clamp(tr.stage, 0, 9)
+    : 0;
+  state.trPickActive = !!(tr && tr.pickActive);
+
+  state.trLocked = {};
+  if(tr && tr.locked && typeof tr.locked === "object"){
+    for(const [k,v] of Object.entries(tr.locked)){
+      const idx = parseInt(k, 10);
+      if(!Number.isFinite(idx) || idx < 0 || idx >= n) continue;
+      const ch = String(v || "").toLowerCase();
+      if(ch && isAlpha(ch)) state.trLocked[String(idx)] = ch[0];
+    }
+  }
+
   updateModePill();
+
   return true;
 }
 
@@ -5456,7 +5512,14 @@ function resetAllForPuzzle(){
   state.sel1 = null;
   state.sel2 = null;
 
+  // timed reveal
+  state.trElapsedMs = 0;
+  state.trStage = 0;
+  state.trPickActive = false;
+  state.trLocked = {};
+
   setMsg("");
+
   state.overlapMsgOn = false;
   state.lockMsg = false;
 
