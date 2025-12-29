@@ -1,16 +1,9 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-  <title>Trigrams for Grandma</title>
-  <!-- Preload modal images -->
-<link rel="preload" as="image" href="demo_clue.png">
-<link rel="preload" as="image" href="demo_grid.gif">
-<link rel="preload" as="image" href="question-mark.svg">
-<link rel="preload" as="image" href="stats-icon.svg">
-
-
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trigram (stripped single-mode)</title>
 <style>
   :root{
     --bg:#a9cdf3;
@@ -23,435 +16,118 @@
     --bad:#ffc9d2;  /* red/pink warning */
     --submit:#F4D2FD;
 
-    --kb-h:260px;
-    --caret:rgba(0,0,0,.18);
-
-    --clue-hint-gap:7px;
-    --lift-msg:38px;
-    --lift-hints:96px;
-    --msg-drop:35px;
-    --result-drop:32px;
     --badge-drop:72px;
   }
 
-  *{ box-sizing:border-box; }
-
-  html,body{
-    height:100%;
-    overflow:hidden;
-    overscroll-behavior:none;
-    background:var(--bg);
-  }
+  *{box-sizing:border-box}
+  html,body{height:100%; overflow:hidden; background:var(--bg);}
   body{
     margin:0;
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
     color:var(--ink);
-    text-align:center;
-    -webkit-text-size-adjust:100%;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-touch-callout:none;
+    user-select:none;
   }
 
-/* prevent selection / tap highlight inside the app */
-:is(.wrap,#wrap,#rotateOverlay,#hintsModal,#kbHost,.kbHost),
-:is(.wrap,#wrap,#rotateOverlay,#hintsModal,#kbHost,.kbHost) *{
-  -webkit-user-select:none;
-  user-select:none;
-  -webkit-touch-callout:none;
-  -webkit-tap-highlight-color:transparent;
-  touch-action:manipulation;
-}
-
-  html.has-kb, html.has-kb body{
-  -webkit-touch-callout:none;
-  -webkit-user-select:none;
-  user-select:none;
-  -webkit-tap-highlight-color:transparent;
-}
-
-html.has-kb .kbKey, 
-html.has-kb .kbKey *{
-  -webkit-touch-callout:none;
-  -webkit-user-select:none;
-  user-select:none;
-  -webkit-user-drag:none;
-  -webkit-tap-highlight-color:transparent;
-}
-
-
-
-  /* Smooth dim/blur transitions for main content + keyboard */
-  :is(#wrap,.wrap,#kbHost,.kbHost){
-    transition:filter .1s ease, opacity .1s ease;
-  }
-
-
-
-  /* ===== Layout ===== */
-  :is(.wrap,#wrap){
-    height:100dvh;
-    max-height:100dvh;
-    width:100%;
-    max-width:980px;
-    margin:0 auto;
-    padding:12px 14px 14px;
+  .wrap{
+    height:100%;
     display:flex;
     flex-direction:column;
-    align-items:stretch;
-    justify-content:flex-start;
-    overflow:hidden;
-    position:relative;
-  }
-
-  .toprow{
-    display:flex;
-    justify-content:center;
     align-items:center;
-    margin-top:2px;
-    flex:0 0 auto;
+    padding:10px 14px 14px;
+    gap:8px;
   }
 
-  .modePill{
-    position:absolute;
-    top:10px;
-    right:14px;
-    padding:4px 9px;
-    border-radius:999px;
-    font-size:11px;
-    letter-spacing:.12em;
-    text-transform:uppercase;
-    background:rgba(255,255,255,.34);
-    border:1px solid rgba(0,0,0,.12);
-    color:rgba(0,0,0,.68);
-    font-weight:700;
-    opacity:.85;
-    pointer-events:auto;
-    cursor:pointer;
-  }
-
-
-  /* Top-left icon buttons */
-  .statsBtn,
-  .helpBtn{
-    position:absolute;
-    top:10px;
-    width:28px;
-    height:28px;
-    border-radius:999px;
-    padding:0;
-    margin:0;
-    background:rgba(255,255,255,.34);
-    border:1px solid rgba(0,0,0,.12);
+  /* ===== top bar ===== */
+  .topBar{
+    width:min(920px, 96vw);
     display:flex;
     align-items:center;
-    justify-content:center;
-    cursor:pointer;
-    appearance:none;
-    -webkit-appearance:none;
-    outline:none;
-    box-shadow:none;
-  }
-  .statsBtn{ left:14px; }
-  .helpBtn{ left:48px; }
-
-  .statsBtn:focus,
-  .helpBtn:focus{
-    outline:none;
-    box-shadow:none;
-  }
-  .statsBtn:active,
-  .helpBtn:active{
-    transform:translateY(1px);
-  }
-
-  .statsIcon,
-  .helpIcon{
-    width:17px;
-    height:17px;
-    opacity:.50;
-    display:block;
-    pointer-events:none;
-  }
-
-
-  .nav{
-    display:flex;
-    align-items:center;
+    justify-content:space-between;
     gap:10px;
-    font-weight:850;
+    margin-top:4px;
   }
-  .nav :is(a,button){
-    color:var(--ink);
+  .navBtn{
+    width:42px; height:42px;
+    border:2px solid rgba(0,0,0,.18);
+    border-radius:14px;
+    background:rgba(255,255,255,.75);
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
     text-decoration:none;
-    font-weight:850;
-    padding:5px 10px;
-    border-radius:999px;
-    background:rgba(255,255,255,.32);
-    border:1.5px solid rgba(0,0,0,.16);
+    color:var(--ink);
+    font-weight:900;
     cursor:pointer;
-    appearance:none;
-    -webkit-appearance:none;
-    font:inherit;
   }
-  .nav :is(a,button):active{ transform:translateY(1px); }
-    .nav a.is-disabled{
+  .navBtn[aria-disabled="true"]{
     opacity:.35;
-    pointer-events:none;
     cursor:default;
+    pointer-events:none;
+  }
+  .count{
+    font-weight:900;
+    letter-spacing:.06em;
+    opacity:.75;
+  }
+  .helpBtn{
+    width:42px; height:42px;
+    border:2px solid rgba(0,0,0,.18);
+    border-radius:14px;
+    background:rgba(255,255,255,.75);
+    cursor:pointer;
+    font-weight:900;
   }
 
-
-
-.nav .navCaret{
-  display:inline-block;
-  position:relative;
-  opacity:0.5;
-  top:-1px; 
-}
-
-
-  .count{
+  /* ===== clue ===== */
+  .clue{
+    width:min(920px, 96vw);
+    background:rgba(255,255,255,.78);
+    border:2px solid rgba(0,0,0,.12);
+    border-radius:18px;
+    padding:10px 14px;
+    font-size:18px;
     font-weight:850;
-    opacity:.6;
-    min-width:58px;
     text-align:center;
   }
+  .u-w1, .u-w2{
+    text-decoration: underline;
+    text-decoration-thickness: 3px;
+    text-underline-offset: 5px;
+  }
+  .u-w1{ text-decoration-color: rgba(255,210,80,.95); }
+  .u-w2{ text-decoration-color: rgba(120,170,255,.95); }
 
-  /* ===== Clue + floating hint track ===== */
-  .clue{
-    display:block;
-    width:fit-content;
-    max-width:min(940px,94vw);
-    margin:clamp(18px,3.6vh,36px) auto 0;
-    padding:14px 13px 15px 20px;
-    background:var(--bubble);
-    border-radius:18px;
-    box-shadow:0 2px 6px rgba(0,0,0,.08);
-    font-size:clamp(30px,5.4vw,38px);
-    line-height:1.12;
-    letter-spacing:.12px;
-    font-weight:400;
-    flex:0 0 auto;
+  /* ===== grid ===== */
+  .gridDock{
+    width:min(920px, 96vw);
+    flex:1 1 auto;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding-top:10px;
   }
-
-  /* ===== Assist activation flash (clue glow) ===== */
-  .clue.assist-glow{ animation:assistClueGlow 3.2s ease-out both; }
-  @keyframes assistClueGlow{
-    0%{
-      box-shadow:
-        0 2px 6px rgba(0,0,0,.08),
-        0 0 0 4px rgba(70,255,150,.95),
-        0 0 40px rgba(70,255,150,.75);
-    }
-    55%{
-      box-shadow:
-        0 2px 6px rgba(0,0,0,.08),
-        0 0 0 4px rgba(70,255,150,.72),
-        0 0 54px rgba(70,255,150,.6);
-    }
-    100%{
-      box-shadow:
-        0 2px 6px rgba(0,0,0,.08),
-        0 0 0 0 rgba(70,255,150,0),
-        0 0 0 rgba(70,255,150,0);
-    }
-  }
-
-  /* ===== Assist activation flash (message) ===== */
-  .msg.assistFlash{ animation:assistMsgFlash 4.2s ease-in-out both; }
-  @keyframes assistMsgFlash{
-    0%   { opacity:0;   transform:translateX(-50%) translateY(-6px); }
-    12%  { opacity:.92; transform:translateX(-50%) translateY(0); }
-    75%  { opacity:.92; transform:translateX(-50%) translateY(0); }
-    100% { opacity:0;   transform:translateX(-50%) translateY(10px); }
-  }
-
-  .clue .len{
-    opacity:.55;
-    display:inline-block;
-    font-size:.92em;
-    line-height:1;
-    vertical-align:middle;
-    position:relative;
-    top:-0.1em;
-    margin-left:8px;
-  }
-
-  .clueWrap{
-    position:relative;
-    flex:0 0 auto;
-    padding-bottom:0;
-  }
-  .clueWrap.hasTopTrack{ padding-bottom:15px; }
-
-  .hintTrackTop{
-    position:absolute;
-    left:50%;
-    top:calc(100% + var(--clue-hint-gap));
-    transform:translateX(-50%);
-    margin:0;
-    min-height:0;
-    z-index:30;
-  }
-
-  .clueWord{
-    display:inline-block;
-    cursor:pointer;
-    font-kerning:none;
-    font-variant-ligatures:none;
-    font-feature-settings:"kern" 0,"liga" 0,"clig" 0;
-  }
-
-  .u-w1,.u-w2,.u-red{
-    text-decoration:underline;
-    text-decoration-thickness:6px;
-    text-underline-offset:9px;
-    pointer-events:none;
-  }
-  .u-w1{ text-decoration-color:rgba(255,220,0,.9); }
-  .u-w2{ text-decoration-color:rgba(70,160,255,.92); }
-  .u-red{ text-decoration-color:rgba(235,80,92,.92); }
-
-  /* ===== Grid ===== */
-  :is(.gridDock,#gridDock){
-    display:block;
-    width:fit-content;
-    margin:105px auto 0;
-    position:relative;
-    flex:0 0 auto;
-    border-radius:14px;
-    box-shadow:0 3px 8px rgba(0,0,0,.08);
-    transition:box-shadow .45s ease;
-    will-change:transform,box-shadow;
-    z-index:20;
-    isolation:isolate;
-  }
-  @media (pointer:coarse) and (max-width:920px){
-    :is(.gridDock,#gridDock){ margin-top:clamp(36px,6.1vh,62px); }
-  }
-  html.has-kb :is(.gridDock,#gridDock){ margin:90px auto 0; }
-  :is(.gridDock,#gridDock).shake{ animation:shake .16s linear 0s 2; }
-
-  .wrap.solved:not(.gaveup) :is(.gridDock,#gridDock),
-  .wrap.gaveup :is(.gridDock,#gridDock){
-    pointer-events:none;
-    transform:translate3d(0,-16px,0) scale(1.01);
-    box-shadow:0 14px 26px rgba(0,0,0,.14);
-    animation:solvedPop .46s ease-out both;
-  }
-  .wrap.solved:not(.gaveup) :is(.gridDock,#gridDock){
-    box-shadow:
-      0 0 0 7px rgba(200,247,210,.55),
-      0 0 0 13px rgba(200,247,210,.22),
-      0 14px 26px rgba(0,0,0,.14);
-    animation:solvedPop .46s ease-out both, glowPulse 1.15s ease-in-out 0s 2;
-  }
-  .wrap.gaveup :is(.gridDock,#gridDock){
-    box-shadow:
-      0 0 0 7px rgba(255,150,160,.46),
-      0 0 0 13px rgba(255,150,160,.20),
-      0 14px 26px rgba(0,0,0,.14);
-    animation:solvedPop .46s ease-out both, redPulse 1.15s ease-in-out 0s 2;
-  }
-
-  @keyframes solvedPop{
-    0%{ transform:translate3d(0,-10px,0) scale(.985); }
-    55%{ transform:translate3d(0,-20px,0) scale(1.02); }
-    100%{ transform:translate3d(0,-16px,0) scale(1.01); }
-  }
-  @keyframes glowPulse{
-    0%{
-      box-shadow:
-        0 0 0 7px rgba(200,247,210,.40),
-        0 0 0 13px rgba(200,247,210,.16),
-        0 14px 26px rgba(0,0,0,.14);
-    }
-    50%{
-      box-shadow:
-        0 0 0 7px rgba(200,247,210,.70),
-        0 0 0 14px rgba(200,247,210,.28),
-        0 16px 30px rgba(0,0,0,.16);
-    }
-    100%{
-      box-shadow:
-        0 0 0 7px rgba(200,247,210,.55),
-        0 0 0 13px rgba(200,247,210,.22),
-        0 14px 26px rgba(0,0,0,.14);
-    }
-  }
-  @keyframes redPulse{
-    0%{
-      box-shadow:
-        0 0 0 7px rgba(255,150,160,.32),
-        0 0 0 13px rgba(255,150,160,.12),
-        0 14px 26px rgba(0,0,0,.14);
-    }
-    50%{
-      box-shadow:
-        0 0 0 7px rgba(255,150,160,.60),
-        0 0 0 14px rgba(255,150,160,.24),
-        0 16px 30px rgba(0,0,0,.16);
-    }
-    100%{
-      box-shadow:
-        0 0 0 7px rgba(255,150,160,.46),
-        0 0 0 13px rgba(255,150,160,.20),
-        0 14px 26px rgba(0,0,0,.14);
-    }
-  }
-  @keyframes shake{
-    0%{ transform:translateX(0); }
-    25%{ transform:translateX(-6px); }
-    50%{ transform:translateX(6px); }
-    75%{ transform:translateX(-4px); }
-    100%{ transform:translateX(0); }
-  }
-
-  :is(.gridWrap,#gridWrap){
-    display:block;
-    border:4px solid var(--ink);
-    border-radius:14px;
-    overflow:hidden;
-    background:#fff;
-  }
-
   .grid{
     --n:7;
-    --gap:3px;
-    --cell:44px;
     display:grid;
-    grid-template-columns:repeat(var(--n),1fr);
-    gap:var(--gap);
-    background:var(--ink);
-    width:min(calc(var(--n) * var(--cell) + (var(--n) - 1) * var(--gap)),92vw);
+    grid-template-columns: repeat(var(--n), 1fr);
+    gap:8px;
   }
-
   .cell{
-    aspect-ratio:1/1;
+    width:52px; height:64px;
+    border-radius:16px;
+    background:rgba(255,255,255,.92);
+    border:2px solid rgba(0,0,0,.16);
+    box-shadow: 0 6px 0 rgba(0,0,0,.10);
     display:flex;
     align-items:center;
     justify-content:center;
-    background:#fff;
-    position:relative;
   }
-
-  .cell.active::after{
-    content:"";
-    position:absolute;
-    height:3px;
-    width:62%;
-    left:50%;
-    bottom:12%;
-    transform:translateX(-50%);
-    background:var(--caret);
-    border-radius:999px;
-    animation:caretBlink 1.1s steps(2,end) infinite;
-    pointer-events:none;
-    opacity:1;
+  .cell.active{
+    outline:3px solid rgba(0,0,0,.10);
+    outline-offset:2px;
   }
-  @keyframes caretBlink{
-    0%,46%{ opacity:1; }
-    47%,100%{ opacity:0; }
-  }
-
   .cell input{
     width:100%;
     height:100%;
@@ -459,263 +135,71 @@ html.has-kb .kbKey *{
     outline:none;
     background:transparent;
     text-align:center;
-    font-size:clamp(23px,5.1vw,32px);
-    font-weight:900;
-    font-style:italic;
-    padding:0;
-    margin:0;
+    font-size:30px;
+    font-weight:950;
     color:var(--ink);
-    text-transform:lowercase;
-    caret-color:transparent;
-    cursor:text;
-    appearance:none;
-    -webkit-appearance:none;
-    border-radius:0;
-    user-select:none;
-    -webkit-user-select:none;
+    text-transform:uppercase;
+    caret-color: rgba(0,0,0,.2);
   }
-  .cell input::selection{ background:transparent; color:inherit; }
-
-
-  .cell.bg-bad{ background:var(--bad) !important; }
-
-  
-
   html.has-kb .cell input{ pointer-events:none; }
 
-  /* ===== Messages ===== */
-  :is(.msgSlot,#msgSlot){
-    position:relative;
-    height:78px;
-    width:100%;
-    max-width:760px;
-    margin:clamp(2px,.7vh,6px) auto 0;
-    flex:0 0 auto;
-    pointer-events:none;
-    transform:translateY(calc(-1 * var(--lift-msg) + var(--msg-drop)));
-  }
-  .wrap.solved :is(.msgSlot,#msgSlot){ margin-top:clamp(0px,.4vh,4px); }
-
-  .msg{
-    position:absolute;
-    left:50%;
-    top:18px;
-    margin:0;
-    font-weight:900;
-    opacity:0;
-    transition:opacity .18s ease, transform .18s ease;
-    font-style:italic;
-    font-size:22px;
-    pointer-events:none;
-    width:max-content;
-    max-width:min(92vw,760px);
-    white-space:pre-line;
-    line-height:1.15;
-    text-align:center;
-    transform:translateX(-50%) translateY(0);
-    padding-right: 0.25em; 
-  margin-right: -0.25em; 
-  box-sizing: content-box;
-  }
-  .msg.show{ opacity:.92; }
-  .msg.warn{ opacity:.92; font-size:20px; }
-  .msg.result{
-    top:12px;
-    font-size:27px;
-    transform:translateX(-50%) translateY(calc(var(--result-drop) - var(--msg-drop)));
+  /* ===== message ===== */
+  #msg{
+    min-height:22px;
+    font-weight:850;
+    opacity:.9;
   }
 
-  .msg .msgLine{ display:block; }
-  .msg.result .msgLine.score{ font-size:26px; margin-top:6px; }
-  .msg.result .msgLine.meta{ font-size:14px; opacity:.55; margin-top:4px; }
-
- 
-
-
-  html.has-kb .hintDockBottom{
-    position:fixed;
-    left:0; right:0;
-    bottom:calc(
-      var(--kb-h) + env(safe-area-inset-bottom) + 36px
-      + var(--btn-row-h, 0px) + 22px
-    );
-    margin:0;
-    z-index:9996;
-  }
-
-  .trackRow{
+  /* ===== buttons ===== */
+  .btnRow{
+    width:min(920px, 96vw);
     display:flex;
-    align-items:flex-start;
     justify-content:center;
-    gap:18px;
-    flex-wrap:nowrap;
-    transition:opacity .35s ease;
-  }
-
-  .trackBlock{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:6px;
-    min-width:0;
-  }
-
-  .letters{
-    display:inline-flex;
-    background:transparent;
-    position:relative;
-    flex:0 0 auto;
-  }
-  .letters.clickable{ cursor:pointer; }
-
-  .letter{
-    width:29px;
-    height:29px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:900;
-    font-style:italic;
-    font-size:19px;
-    text-transform:lowercase;
-    background:rgba(255,255,255,.35);
-    transition:opacity .15s ease, background .15s ease, transform .08s ease;
-    border:1px solid rgba(0,0,0,.22);
-    transform-origin:center;
-  }
-  .letter + .letter{ margin-left:-1px; }
-
-  .letter.sel-w1{ background:var(--w1); }
-  .letter.sel-w2{ background:var(--w2); }
-
-  .letter.extra{
-    background:rgba(255,255,255,.95);
-    cursor:pointer;
-    box-shadow:none;
-  }
-  .letter.extra:active{ transform:translateY(1px); }
-
-  .extrasRow{
-    display:flex;
     gap:10px;
-    align-items:center;
-    justify-content:center;
-    flex-wrap:nowrap;
+    padding-bottom:6px;
+  }
+  .btn{
+    border:3px solid rgba(0,0,0,.18);
+    border-radius:999px;
+    padding:10px 16px;
+    min-width:128px;
+    background:rgba(255,255,255,.78);
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.10em;
+    cursor:pointer;
+  }
+  .btn:disabled{
+    opacity:.40;
+    cursor:default;
+  }
+  .btn.primary{
+    background:var(--submit);
+    border-color:rgba(0,0,0,.22);
   }
 
-  .letters.is-in-grid .letter{ opacity:.38; }
-  #trackBox-extras .letter.is-in-grid{ opacity:.38; }
-
-  /* ===== Hint fly overlay ===== */
-  .hintSpotOverlay{
-    position:fixed;
-    inset:0;
-    z-index:12000;
-    pointer-events:none;
-    display:block;
-  }
-  .hintSpot{
-    position:fixed;
-    left:50%;
-    top:42%;
-    transform:translate(-50%,-50%);
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    will-change:transform,filter,opacity;
-  }
-  .hintSpot.h1 .letter{ background:var(--w1); }
-  .hintSpot.h2 .letter{ background:var(--w2); }
-  .hintSpot.hex .letter{ background:rgba(255,255,255,.97); }
-
-  /* ===== Skill dock + badge ===== */
-  :is(.skillDock,#skillDock){
-    margin:clamp(0px,.5vh,6px) auto 0;
-    width:fit-content;
-    max-width:min(920px,96vw);
+  /* ===== skill badge + next puzzle (kept) ===== */
+  .skillDock{
+    width:min(920px, 96vw);
     min-height:74px;
+    position:relative;
     display:flex;
     align-items:center;
     justify-content:center;
-    flex:0 0 auto;
-    position:relative;
-    transform:translateY(calc(-1 * var(--lift-hints)));
   }
-
-  .wrap.solved .trackRow{ opacity:0; }
-  .wrap.solved .hintTrack{ pointer-events:none; opacity:1; }
-
   .skillBadge{
     position:absolute;
     left:50%;
     top:40%;
-    transform:translate(-50%,-50%) translateY(var(--badge-drop)) scale(.84);
+    transform:translate(-50%,-50%) translateY(var(--badge-drop)) scale(.86);
     opacity:0;
     pointer-events:none;
-    transition:opacity .35s ease, transform .35s ease;
+    transition:opacity .25s ease;
   }
-.wrap.solved .skillBadge{
-  opacity:1;
-  transform:translate(-50%,-50%) translateY(var(--badge-drop)) scale(.86);
-  transition-delay:.06s;
-  pointer-events:auto;
-  cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-}
-
-
-    .nextPuzzleBtn{
-    position:absolute;
-    left:50%;
-    top:40%;
-
-    /* increase this number for a bigger gap under the badge */
-    --next-y: calc(var(--badge-drop) + 120px);
-
-    transform:translate(-50%,-50%) translateY(var(--next-y));
-    opacity:0;
-    visibility:hidden;
-    pointer-events:none;
-
-    border:3.5px solid var(--ink);
-    border-radius:999px;
-    padding:9px 16px;
-    min-width:190px;
-    font-size:16px;
-    font-weight:900;
-    color:var(--ink);
-    background:rgba(255,255,255,.35);
-    cursor:pointer;
-    text-transform:uppercase;
-    letter-spacing:.12em;
-    appearance:none;
-    -webkit-appearance:none;
-    box-shadow:0 7px 0 rgba(0,0,0,.16);
-    transition:opacity .35s ease, transform .35s ease;
-  }
-
-  .nextPuzzleBtn:active{
-    transform:translate(-50%,-50%) translateY(calc(var(--next-y) + 1px));
-    box-shadow:0 6px 0 rgba(0,0,0,.16);
-  }
-
-  /* show it only once the answer is revealed (solved OR gave up) */
-  .wrap.solved .nextPuzzleBtn,
-  .wrap.gaveup .nextPuzzleBtn{
+  .wrap.solved .skillBadge{
     opacity:1;
-    visibility:visible;
     pointer-events:auto;
-    transition-delay:.10s;
   }
-
-  /* only apply disabled styling once it’s actually visible */
-  .wrap.solved .nextPuzzleBtn:disabled,
-  .wrap.gaveup .nextPuzzleBtn:disabled{
-    opacity:.35;
-    cursor:default;
-    pointer-events:none;
-  }
-
   .skillBadgeInner{
     position:relative;
     overflow:hidden;
@@ -738,55 +222,6 @@ html.has-kb .kbKey *{
       0 12px 26px rgba(255,200,80,.16),
       0 3px 10px rgba(0,0,0,.22);
   }
-
-  .skillBadgeInner.gold{
-    --txt:#2a1a00;
-    --bdr:rgba(255,220,130,.70);
-    --g1:rgba(255,238,190,.96);
-    --g2:rgba(255,205,105,.94);
-    --g3:rgba(255,246,210,.97);
-    --g4:rgba(255,185,70,.93);
-    box-shadow:
-      0 14px 28px rgba(255,205,95,.18),
-      0 3px 10px rgba(0,0,0,.22);
-  }
-
-  .skillBadgeInner.silver{
-    --txt:#1f2328;
-    --bdr:rgba(200,206,215,.70);
-    --g1:rgba(238,242,247,.99);
-    --g2:rgba(214,222,232,.96);
-    --g3:rgba(242,246,250,.99);
-    --g4:rgba(203,212,223,.95);
-    box-shadow:
-      0 12px 24px rgba(0,0,0,.12),
-      0 3px 10px rgba(0,0,0,.20);
-  }
-
-  .skillBadgeInner.bronze{
-    --txt:#2a1204;
-    --bdr:rgba(190,130,95,.46);
-    --g1:rgba(248,214,190,.99);
-    --g2:rgba(226,170,130,.96);
-    --g3:rgba(250,222,205,.99);
-    --g4:rgba(208,150,112,.95);
-    box-shadow:
-      0 12px 24px rgba(0,0,0,.12),
-      0 3px 10px rgba(0,0,0,.20);
-  }
-
-  .skillBadgeInner.red{
-    --txt:#160405;
-    --bdr:rgba(150,55,60,.42);
-    --g1:rgba(242,208,208,.99);
-    --g2:rgba(220,150,148,.96);
-    --g3:rgba(244,214,214,.99);
-    --g4:rgba(195,120,120,.95);
-    box-shadow:
-      0 14px 28px rgba(0,0,0,.14),
-      0 3px 10px rgba(0,0,0,.20);
-  }
-
   .skillBadgeLabel{
     font-size:12px;
     font-weight:900;
@@ -799,695 +234,160 @@ html.has-kb .kbKey *{
     font-weight:950;
     line-height:1;
     margin-top:2px;
-    text-shadow:0 1px 0 rgba(255,255,255,.45);
   }
-
-  .skillBadgeInner::before{
-    content:"";
+  .nextPuzzleBtn{
     position:absolute;
-    inset:0;
-    border-radius:inherit;
-    background:
-      radial-gradient(circle at 18% 28%, rgba(255,255,255,.85), transparent 38%),
-      radial-gradient(circle at 78% 42%, rgba(255,255,255,.55), transparent 42%),
-      radial-gradient(circle at 54% 86%, rgba(255,255,255,.35), transparent 48%);
-    opacity:.55;
-    pointer-events:none;
-  }
-  .skillBadgeInner::after{
-    content:"";
-    position:absolute;
-    inset:0;
-    border-radius:inherit;
-    pointer-events:none;
-    background:linear-gradient(110deg,
-      transparent 0%,
-      rgba(255,255,255,0) 38%,
-      rgba(255,255,255,.70) 48%,
-      rgba(255,255,255,0) 60%,
-      transparent 100%);
-    background-size:220% 100%;
-    background-position:-120% 0;
-    opacity:.55;
-    mix-blend-mode:soft-light;
-    animation:skillShine 1.6s ease-in-out infinite;
-  }
-  @keyframes skillShine{
-    0%{ background-position:-120% 0; opacity:0; }
-    15%,55%{ opacity:.55; }
-    100%{ background-position:120% 0; opacity:0; }
-  }
-  @media (prefers-reduced-motion:reduce){
-    .skillBadgeInner::after{ animation-duration:4.5s; opacity:.25; }
-  }
-
-  /* ===== Buttons ===== */
-  :is(.btnRow,#btnRow){
-    margin-top:clamp(18px,3.8vh,26px);
-    display:flex;
-    justify-content:center;
-    gap:12px;
-    flex-wrap:wrap;
-    flex:0 0 auto;
-    padding-bottom:2px;
-    transition:opacity .35s ease, transform .35s ease;
-  }
-
-  .wrap.solved :is(#btnRow,.btnRow){
+    left:50%;
+    top:40%;
+    --next-y: calc(var(--badge-drop) + 120px);
+    transform:translate(-50%,-50%) translateY(var(--next-y));
     opacity:0;
-    transform:translateY(6px);
+    visibility:hidden;
     pointer-events:none;
-  }
-  .wrap.solved .hintTrackTop{ opacity:0; pointer-events:none; }
 
-  .btn{
-    border:4px solid var(--ink);
+    border:3.5px solid var(--ink);
     border-radius:999px;
     padding:9px 16px;
-    min-width:104px;
-    font-size:20px;
-    font-weight:900;
-    font-style:italic;
+    min-width:190px;
+    font-size:15px;
+    font-weight:950;
     color:var(--ink);
     background:rgba(255,255,255,.35);
     cursor:pointer;
-    text-transform:lowercase;
-    appearance:none;
-    -webkit-appearance:none;
+    text-transform:uppercase;
+    letter-spacing:.12em;
     box-shadow:0 7px 0 rgba(0,0,0,.16);
   }
-  .btn:active{ transform:translateY(1px); box-shadow:0 6px 0 rgba(0,0,0,.16); }
-  .btn.hints{ background:#fff3bd; }
-  .btn.check{ background:rgba(255,255,255,.25); opacity:.55; }
-  .btn.check.ready{ opacity:1; background:var(--submit); }
-  .btn:disabled{
-    opacity:.35 !important;
-    cursor:default;
-    transform:none !important;
-    box-shadow:0 7px 0 rgba(0,0,0,.10);
+  .nextPuzzleBtn:active{
+    transform:translate(-50%,-50%) translateY(calc(var(--next-y) + 1px));
+    box-shadow:0 6px 0 rgba(0,0,0,.16);
+  }
+  .wrap.solved .nextPuzzleBtn{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
   }
 
-  html.has-kb :is(.btnRow,#btnRow){
+  /* ===== keyboard ===== */
+  #kbHost{
     position:fixed;
     left:0; right:0;
-    bottom:calc(var(--kb-h) + env(safe-area-inset-bottom) + 36px);
-    margin:0;
-    z-index:9997;
+    bottom:0;
+    z-index:9996;
+    display:none;
+    padding:10px 10px calc(18px + env(safe-area-inset-bottom));
+    background:rgba(255,255,255,.90);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border-top:2px solid rgba(0,0,0,.14);
+    touch-action:none;
   }
-  html.has-kb .btn{ border-width:3px; }
+  html.has-kb #kbHost{ display:block; }
+  #wrap.solved ~ #kbHost{ display:none !important; }
 
-  
-  /* ===== Keyboard ===== */
-:is(.kbHost,#kbHost){
-  position:fixed;
-  left:0; right:0;
-  bottom:0;
-  z-index:9996;
-  display:none;
-  padding:10px 10px calc(22px + env(safe-area-inset-bottom));
-  background:rgba(255,255,255,.90);
-  backdrop-filter:blur(10px);
-  -webkit-backdrop-filter:blur(10px);
-  border-top:2px solid rgba(0,0,0,.14);
-  touch-action:none;
-}
-
-    html.has-kb :is(.kbHost,#kbHost){ display:block; }
-
-  /* hide custom keyboard once the answer is revealed */
-  #wrap.solved ~ :is(.kbHost,#kbHost),
-  #wrap.gaveup ~ :is(.kbHost,#kbHost){
-    display:none !important;
-  }
-
-
-  .kb{
-    max-width:560px;
-    margin:0 auto;
-    display:flex;
-    flex-direction:column;
-    gap:8px;
-    --keyW:clamp(28px,8.6vw,48px);
-  }
+  .kb{ max-width:560px; margin:0 auto; display:flex; flex-direction:column; gap:8px; --keyW:clamp(28px,8.6vw,48px); }
   .kbRow{ display:flex; justify-content:center; gap:4px; }
-
   .kbKey{
     width:var(--keyW);
     height:48px;
     border:2px solid rgba(0,0,0,.16);
     border-radius:11px;
     background:rgba(255,255,255,.82);
-    font-weight:700;
-    font-style:normal;
-    text-transform:none;
+    font-weight:900;
     font-size:18px;
     color:var(--ink);
     cursor:pointer;
-        -webkit-touch-callout:none;
+    -webkit-touch-callout:none;
     -webkit-user-select:none;
     user-select:none;
-
   }
   .kbKey:active{ transform:translateY(1px); }
+  .kbKey.wide{ width:calc(var(--keyW) * 1.55); font-size:12px; letter-spacing:.08em; }
+  .kbKey.enter{ font-size:11px; letter-spacing:.02em; background:rgba(0,0,0,.07); }
+  .kbKey.delete{ background:rgba(0,0,0,.07); }
+  .kbKey.reset{ font-size:12px; color:rgba(0,0,0,.6); background:rgba(0,0,0,.07); }
+  .kbKey.is-disabled{ opacity:.38; cursor:default; transform:none !important; }
 
-  .kbKey .kbIcon{
-    width:24px;
-    height:24px;
-    display:block;
-    margin:0 auto;
-    pointer-events:none;
-    user-select:none;
-    -webkit-user-drag:none;
-  }
-
-  .kbKey.wide{ width:calc(var(--keyW) * 1.55); font-size:12px; font-weight:900; letter-spacing:.08em; padding:0; }
-  .kbKey.enter{ font-size:11px; letter-spacing:.02em; }
-  .kbKey.enter:not(.is-disabled){ background:rgba(0,0,0,.07); }
-
-  .kbKey.delete{
-    font-size:16.3px;
-    letter-spacing:.03em;
-    font-weight:750;
-    background:rgba(0,0,0,.07);
-  }
-  .kbKey.reset{
-    font-size:13px;
-    color:rgba(0,0,0,.6);
-    letter-spacing:.01em;
-    font-weight:700;
-    background:rgba(0,0,0,.07);
-  }
-
-  .kbKey.is-disabled{
-    opacity:.38;
-    background:rgba(0,0,0,.04);
-    border-color:rgba(0,0,0,.10);
-    transform:none !important;
-    cursor:default;
-  }
-
-/* ===== Modal + Stats overlay (shared) ===== */
-  :is(.modalOverlay,.statsOverlay){
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,.26);
+  /* ===== modal ===== */
+  .modalOverlay{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.25);
     display:none;
-    align-items:flex-start;  /* anchor cards near top */
-    justify-content:center;
-    padding:
-      max(48px, env(safe-area-inset-top) + 65px) /* fixed-ish top gap */
-      14px
-      14px;
-  }
-  .modalOverlay{ z-index:10000; }
-  .statsOverlay{ z-index:11000; }
-  :is(.modalOverlay,.statsOverlay).open{ display:flex; }
-
-
-  :is(.modalCard,.statsCard){
-    width:min(420px,94vw);
-    max-height:75vh;                 /* cap at 75% of viewport height */
-    background:#fff;
-    border-radius:18px;
-    border:2px solid rgba(0,0,0,.15);
-    box-shadow:0 10px 26px rgba(0,0,0,.18);
-    overflow:hidden;                 /* header fixed, body scrolls */
-    text-align:left;
-    display:flex;                    /* header + body as flex column */
-    flex-direction:column;
-  }
-
-
-:is(.modalHdr,.statsHdr){
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  border-bottom:1px solid rgba(0,0,0,.08);
-  gap:10px;
-}
-.modalHdr{ padding:14px 14px 12px; }
-.statsHdr{ padding:14px 14px 10px; }
-
-
-  .modalTitle,
-  .statsTitle{
-    font-weight:950;
-    font-size:18px;
-    letter-spacing:.01em;
-  }
-  .modalTitle{
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-
-  :is(.modalX,.statsX){
-    border:0;
-    background:transparent;
-    color:var(--ink);
-    font-size:20px;
-    line-height:1;
-    font-weight:300;
-    cursor:pointer;
-    padding:2px 6px;
-    opacity:.9;
-    outline:none !important;
-    box-shadow:none !important;
-    appearance:none;
-    -webkit-appearance:none;
-  }
-  :is(.modalX,.statsX):active{ transform:translateY(1px); }
-
-:is(.modalBody,.statsBody){
-  padding:12px 14px 14px;
-  flex:1 1 auto;
-  min-height:0;
-  overflow:auto;
-}
-.statsBody{ font-size:14px; }
-
-
-
-  .statsIntro{ margin-bottom:10px; font-size:13px; opacity:.8; }
-  .statsSection{ margin-bottom:14px; }
-  .statsSection h3{ margin:0 0 4px; font-size:15px; }
-  .statsSummary{ margin:0 0 6px; font-size:13px; opacity:.85; }
-  .statsCols{ display:flex; gap:10px; flex-wrap:wrap; }
-  .statsCol{ flex:1 1 0; min-width:0; }
-  .statsCol h4{
-    margin:0 0 4px;
-    font-size:12px;
-    text-transform:uppercase;
-    letter-spacing:.09em;
-    opacity:.7;
-  }
-
-    .helpModeLink{
-    margin-top:8px;
-  }
-
-  .linkBtn{
-    border:0;
-    padding:0;
-    margin:0;
-    background:none;
-    color:#1a4ed8;
-    font:inherit;
-    text-decoration:underline;
-    cursor:pointer;
-  }
-  .linkBtn:active{
-    transform:translateY(1px);
-  }
-
-
-  .statRow{ display:flex; align-items:center; gap:6px; margin-bottom:3px; }
-  .statLabel{ flex:0 0 64px; font-size:12px; opacity:.8; }
-  .statBar{
-    flex:1 1 auto;
-    height:7px;
-    border-radius:999px;
-    background:rgba(0,0,0,.06);
-    overflow:hidden;
-  }
-  .statBarFill{
-    display:block;
-    height:100%;
-    border-radius:999px;
-    background:linear-gradient(90deg, rgba(40,120,255,.9), rgba(110,200,255,.9));
-  }
-  .statValue{ flex:0 0 auto; min-width:18px; text-align:right; font-size:12px; }
-  .statsEmpty{ margin:0 0 4px; font-size:13px; opacity:.75; }
-
-  /* Dim + blur main content + keyboard whenever a modal/stats overlay is open */
-  body:has(.modalOverlay.open) :is(#wrap,.wrap,#kbHost,.kbHost),
-  body:has(.statsOverlay.open) :is(#wrap,.wrap,#kbHost,.kbHost){
-    filter:blur(1px) brightness(0.9);
-    opacity:.65;
-  }
-
-
-  
-  /* ===== Rotate overlay ===== */
-  #rotateOverlay{
-    display:none;
-    position:fixed;
-    inset:0;
-    z-index:25000;
-    background:rgba(169,205,243,.98);
-    padding:
-      calc(18px + env(safe-area-inset-top))
-      16px
-      calc(18px + env(safe-area-inset-bottom));
     align-items:center;
     justify-content:center;
-    text-align:center;
+    padding:18px;
+    z-index:9999;
   }
-  #rotateOverlay .card{
-    width:min(560px,92vw);
-    background:rgba(255,255,255,.92);
-    border:2px solid rgba(0,0,0,.16);
+  .modalOverlay[aria-hidden="false"]{ display:flex; }
+  .modalCard{
+    width:min(520px, 96vw);
+    background:rgba(255,255,255,.96);
+    border:2px solid rgba(0,0,0,.15);
     border-radius:18px;
-    padding:18px 16px;
-    box-shadow:0 10px 26px rgba(0,0,0,.18);
+    box-shadow:0 16px 40px rgba(0,0,0,.22);
+    overflow:hidden;
   }
-  #rotateOverlay .title{
-    margin:0 0 8px;
-    font-weight:600;
-    font-style:normal;
-    font-size:16px;
-    line-height:1.2;
-    opacity:.78;
-  }
-  #rotateOverlay .body{
-    margin:0;
-    font-weight:950;
-    font-size:24px;
-    line-height:1.15;
-  }
-  #rotateOverlay .body b{ font-weight:inherit; }
-
-  @media (pointer:coarse) and (orientation:landscape) and (max-height:430px){
-    #rotateOverlay{ display:flex; }
-    :is(#wrap,.wrap){ pointer-events:none; opacity:.25; filter:blur(2px); }
-    :is(#kbHost,.kbHost){ display:none !important; }
-  }
-
-  /* ===== Mobile tweaks ===== */
-  @media (max-width:520px){
-    :root{ --lift-msg:34px; --lift-hints:88px; }
-
-    .nav :is(a,button){ padding:4px 9px; }
-
-    .clue{
-      font-size:clamp(33px,6.9vw,39px);
-      margin-top:clamp(16px,3.4vh,28px);
-    }
-
-    .grid{
-      --cell:43px;
-      width:min(calc(var(--n) * var(--cell) + (var(--n) - 1) * var(--gap)),94vw);
-    }
-    .cell input{ font-size:clamp(24px,6.05vw,36px); }
-    .letter{ width:28px; height:28px; font-size:19px; }
-
-    .msgSlot{ height:84px; }
-    .msg{ top:12px; font-size:20px; }
-    .msg.warn{ font-size:19px; }
-    .msg.result{ top:14px; font-size:25px; }
-
-    .btn{ font-size:19px; padding:9px 15px; min-width:98px; }
-    .kbKey{ height:46px; }
-    .hintSpot{ top:40%; }
-
-    .modePill{ top:8px; right:10px; font-size:10px; padding:3px 8px; }
-    .statsBtn{ left:10px; top:8px; width:26px; height:26px; }
-    .helpBtn{ left:44px; top:8px; width:26px; height:26px; }
-  }
-
-  @media (min-width:600px){
-    .modePill{ right:calc(50% - 300px + 12px); }
-    .statsBtn{ left:calc(50% - 300px + 12px); }
-    .helpBtn{ left:calc(50% - 300px + 46px); }
-  }
-
-
-  /* Stats overlay typography boost */
-.statsTitle{
-  font-size: 1.4rem;         /* bigger, “headliney” */
-  font-weight: 700;
-}
-
-.statsSection h3{
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-
-.statsSummary{
-  font-size: 0.98rem;        /* up from typical body size */
-  line-height: 1.45;
-}
-
-.statsEmpty,
-.statsIntro{
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-
-.statsModes{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  margin-top:2px;
-}
-
-.statsSection{
-  margin:0;
-  padding:9px 11px 9px;
-  border-radius:12px;
-  background:rgba(0,0,0,.03);
-  border:1px solid rgba(0,0,0,.06);
-}
-
-.statsSection-empty{
-  background:transparent;
-  border-style:dashed;
-  border-color:rgba(0,0,0,.14);
-}
-
-.modeHeading{
-  margin:0 0 6px;
-  font-size: 1.4rem;     
-  font-weight: 700;
-  display:flex;
-  align-items:baseline;
-  gap:4px;
-}
-
-.modeMeta{
-  font-size:0.80rem;
-  font-weight:500;
-  opacity:.72;
-}
-
-.modeLine{
-  margin:1px 0;
-  font-size:0.9rem;
-  display:flex;
-  gap:6px;
-}
-
-.modeLabel{
-  flex:0 0 170px; /* wider so "Longest 0-hint streak:" stays on one line */
-  font-weight:600;
-  opacity:.78;
-}
-
-.modeValue{
-  flex:1 1 auto;
-}
-
-.modeLine-muted,
-.modeValue-muted{
-  color:rgba(0,0,0,.40);
-  opacity:.9;
-}
-
-.statsEmpty{
-  margin:4px 0 2px;
-  font-size:0.9rem;
-  color:rgba(0,0,0,.55);
-}
-.helpDemos{
-  max-width:500px;
-  margin:10px auto 10px;
-}
-.helpDemos img{
-  display:block;
-  width:75%;
-  height:auto;
-  margin:0 auto;          
-}
-
-.helpDemos img + img{ margin-top:8px; }
-  
+  .modalHdr{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid rgba(0,0,0,.10); }
+  .modalTitle{ font-weight:950; letter-spacing:.02em; }
+  .modalX{ width:40px; height:40px; border-radius:12px; border:2px solid rgba(0,0,0,.12); background:rgba(255,255,255,.9); cursor:pointer; font-size:22px; font-weight:900; }
+  .modalBody{ padding:14px 16px; font-weight:650; line-height:1.35; }
+  .modalBody img{ width:100%; border-radius:14px; border:1px solid rgba(0,0,0,.10); }
 </style>
-
-
-
 </head>
-
 <body>
-  <div class="wrap" id="wrap">
 
-       <!-- Stats button -->
-    <button class="statsBtn" id="statsBtn" type="button" aria-label="Show stats">
-      <img src="stats-icon.svg" alt="" class="statsIcon">
-    </button>
+<div class="wrap" id="wrap">
 
-    <!-- How-to-play button -->
-    <button class="helpBtn" id="helpBtn" type="button" aria-label="How to play">
-      <img src="question-mark.svg" alt="" class="helpIcon">
-    </button>
-    
-    <div class="toprow">
-    <div class="nav">
-  <a href="#" id="prevBtn" aria-label="Previous puzzle">
-    <span class="navCaret">‹</span>
-  </a>
-  <span class="count" id="count"></span>
-  <a href="#" id="nextBtn" aria-label="Next puzzle">
-    <span class="navCaret">›</span>
-  </a>
-</div>
-
-    </div>
-<div class="modePill" id="modePill" aria-label="Mode: Classic">Classic</div>
-    
-     <div class="clueWrap" id="clueWrap">
-    <div class="clue" id="clue"></div>
-
-    <!-- floating hint track UNDER the clue -->
-    <div class="hintTrack hintTrackTop" id="hintTrack" aria-label="Hint tracker">
-      <div class="trackRow" id="trackRow">
-        <div class="trackBlock" id="trackW1"></div>
-        <div class="trackBlock" id="trackW2"></div>
-        <div class="trackBlock" id="trackExtras"></div>
-      </div>
+  <div class="topBar">
+    <a class="navBtn" href="#" id="prevBtn" aria-label="Previous puzzle">‹</a>
+    <div class="count" id="count">1/1</div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <button class="helpBtn" id="helpBtn" type="button" aria-label="How to play">?</button>
+      <a class="navBtn" href="#" id="nextBtn" aria-label="Next puzzle">›</a>
     </div>
   </div>
 
-  <div class="gridDock" id="gridDock">
-    <div class="gridWrap" id="gridWrap" aria-label="Answer grid">
-      <div class="grid" id="grid" style="--n:7"></div>
-    </div>
+  <div class="clue" id="clue"></div>
+
+  <div class="gridDock">
+    <div class="grid" id="grid" style="--n:7"></div>
   </div>
 
-  <div class="msgSlot" id="msgSlot" aria-live="polite">
-    <div class="msg" id="msg"></div>
+  <div id="msg"></div>
+
+  <div class="btnRow">
+    <button class="btn" id="hintsBtn" type="button">Hint</button>
+    <button class="btn primary" id="checkBtn" type="button" disabled>Check</button>
   </div>
 
-<!-- Skill badge  -->
-  <div class="skillDock" id="skillDock" aria-label="Skill badge">
-    <div class="skillBadge" id="skillBadge" aria-hidden="true">
-      <div class="skillBadgeInner">
+  <div class="skillDock" id="skillDock" aria-label="Skill badge slot">
+    <div class="skillBadge" id="skillBadge">
+      <div class="skillBadgeInner gold">
         <div class="skillBadgeLabel">Skill</div>
         <div class="skillBadgeValue" id="skillBadgeValue">—</div>
       </div>
     </div>
-
-    <button class="nextPuzzleBtn" id="nextPuzzleBtn" type="button" aria-label="Next puzzle">NEXT PUZZLE</button>
+    <button class="nextPuzzleBtn" id="nextPuzzleBtn" type="button">Next puzzle</button>
   </div>
 
-  <!-- bottom hint-track dock (we move #hintTrack here when there’s room) -->
-  <div class="hintDockBottom" id="hintDockBottom"></div>
-
-  <div class="btnRow" id="btnRow">
-    <button class="btn hints" id="hintsBtn" type="button">hint 1</button>
-    <button class="btn check" id="checkBtn" type="button">check</button>
-  </div>
 </div>
 
+<div id="kbHost" aria-label="On-screen keyboard"></div>
 
-  <div class="modalOverlay" id="hintsModal" aria-hidden="true">
-    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="hintsModalTitle">
-      <div class="modalHdr">
-        <div class="modalTitle" id="hintsModalTitle">Choose a hint</div>
-        <button class="modalX" id="hintsModalClose" type="button" aria-label="Close">×</button>
-      </div>
-      <div class="modalBody" id="hintsModalBody"></div>
-    </div>
-  </div>
-<!-- How to play modal -->
 <div class="modalOverlay" id="helpOverlay" aria-hidden="true">
   <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
     <div class="modalHdr">
       <div class="modalTitle" id="helpTitle">How to play</div>
-      <button class="modalX" id="helpClose" type="button" aria-label="Close how to play">×</button>
+      <button class="modalX" id="helpClose" type="button" aria-label="Close">×</button>
     </div>
     <div class="modalBody" id="helpBody">
-      <p>
-        Each puzzle has <strong>two clue words</strong> and a
-        <strong>unique 7-letter answer word</strong>.
-      </p>
-      <p>
-        The answer word must contain <strong>one 3-letter chunk</strong> (a
-        <em>trigram</em>) from <strong>each clue word</strong>.
-         </p>
-      <p>
-        The two trigrams may <strong>overlap by 1-letter</strong>, so you’ll need
-        <strong>1 or 2 extra letters</strong> to make the word.
-      </p>
-            <div class="helpDemos" aria-label="Demo images">
-        <img src="demo_grid.gif" alt="Grid demo" loading="eager" decoding="async">
-      </div>
-
-      <p>
-        Maximise your <strong>skill score</strong> by taking fewer hints, less time and less wrong guesses!
-      </p><hr style="border:0; height:1px; background:rgba(0,0,0,.1); margin:14px 0 16px;">
-
-
-<p class="helpModeLink">
-  One mode for now: type the 7-letter answer, then press <b>check</b>.
-</p>
-
+      <p>Type the <b>7-letter answer</b>, then press <b>Check</b>.</p>
+      <p>The answer contains a 3-letter chunk (a <i>trigram</i>) from each clue word.</p>
+      <p>(Hints and skill scoring are currently disabled in this stripped version, but the UI is kept for later.)</p>
+      <img src="demo_grid.gif" alt="Grid demo" loading="eager" decoding="async">
     </div>
   </div>
 </div>
-
-
-  <!-- Mode info modal -->
-  <div class="modalOverlay" id="modeOverlay" aria-hidden="true">
-    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="modeTitle">
-      <div class="modalHdr">
-                <div class="modalTitle" id="modeTitle">Game Modes</div>
-        <button class="modalX" id="modeClose" type="button" aria-label="Close mode info">×</button>
-      </div>
-      <div class="modalBody" id="modeBody">
-        <p>
-          Puzzles always start in <strong>Classic mode</strong>. You have to do most of the thinking.
-          You can still use hints and drag trigrams around the grid, but you can't quickly replace trigrams without typing.
-        </p> <p><i>🧠 Best mode to challenge your brain</i> </p><hr style="border:0; height:1px; background:rgba(0,0,0,.1); margin:14px 0 16px;">
-        <p>
-          <strong>Assisted mode</strong> <br><br>Simply tap a clue word at any time to turn this on for the current puzzle.
-    
-        </p>
-        <ul>
-          <li>Tap a clue word to add/replace trigrams</li>
-          <li>Auto-highlighting of trigrams</li>
-         
-        </ul><p>  <i>💡 Best mode when you're feeling lazy</i> </p><hr style="border:0; height:1px; background:rgba(0,0,0,.1); margin:14px 0 16px;">
-        <p>
-          Your <strong>skill score</strong> and other stats will be tracked separately for Classic vs Assisted puzzle attempts to keep things fair.
-        </p>
-      </div>
-
-    </div>
-  </div>
-
-  <div class="kbHost" id="kbHost" aria-label="On-screen keyboard"></div>
-
-
-  <!-- Stats overlay -->
-  <div class="statsOverlay" id="statsOverlay" aria-hidden="true">
-    <div class="statsCard" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
-      <div class="statsHdr">
-        <div class="statsTitle" id="statsTitle">Your stats</div>
-        <button class="statsX" id="statsClose" type="button" aria-label="Close stats">×</button>
-      </div>
-      <div class="statsBody" id="statsBody"></div>
-    </div>
-  </div>
-
-  <div id="rotateOverlay" aria-hidden="true">
-    <div class="card" role="alert">
-      <p class="body"><b>Please rotate your device.</b></p>
-      <p class="title">Oops! We can't fit everything on your screen.</p>
-    </div>
-  </div>
-
-
 
 <script>
 /* =======================
@@ -1614,20 +514,18 @@ const PUZZLES = [
   { clue:"Granny, please?", word1:"granny", word2:"please", answer:"grapple", tri1:"gra", tri2:"ple" },
   { clue:"Armpit revenge", word1:"armpit", word2:"revenge", answer:"impinge", tri1:"mpi", tri2:"nge" },
   { clue:"Feisty temper", word1:"feisty", word2:"temper", answer:"persist", tri1:"ist", tri2:"per" }
-
 ];
 
-
 /* =======================
-   Trimmed core (single mode)
-   Removed: hints UI, trigram highlighting/dragging, clue-word trigram actions,
-            typed trigram auto-promotion, skill scoring, assisted mode.
-   Kept: message system + copy, clue underlines, hint button (no-op), skill badge slot.
+   Stripped single-mode core
+   Removed: hints UI/minigrid/fly-ins, trigram highlighting/dragging,
+            clue-word trigram actions, auto-promotion, assisted mode, skill scoring.
+   Kept: messages, clue underlines, hint button (no-op), skill badge slot.
    ======================= */
 
-const LS_KEY = "trigramGameStats_v1";
+const LS_KEY = "trigramLite_v1";
 
-/* --- Keep existing message copy (even if unused for now) --- */
+/* Keep message copy (even if unused for now) */
 const MAX3_TEXT      = "Max 3 contiguous letters allowed";
 const TWOTRI_TEXT    = "Two trigrams from same word";
 const OVERLAP_TEXT   = "1-letter overlap allowed ✓";
@@ -1635,9 +533,9 @@ const OVERLAP2_TEXT  = "2-letter overlap not allowed";
 const HINT_EXCL_TEXT = "Your hint excluded this trigram";
 const DBLTAP_TEXT    = "Double tap to cycle";
 
-/* --- DOM --- */
+/* DOM */
 const el = {
-  wrap: document.getElementById("wrap") || document.querySelector(".wrap"),
+  wrap: document.getElementById("wrap"),
   clue: document.getElementById("clue"),
   grid: document.getElementById("grid"),
   msg: document.getElementById("msg"),
@@ -1656,39 +554,52 @@ const el = {
 
 const htmlEl = document.documentElement;
 
-/* --- State --- */
+/* State */
 const state = {
   i: 0,
   n: 7,
   grid: [],
   focus: 0,
   finished: false,
-  gaveUp: false,
-  hintCount: 0,      // kept for message text compatibility
+  hintCount: 0,
   useKB: false,
   modalOpen: false,
   transientTimer: null,
 };
 
-precomputePuzzles();
-setSkillBadgePlaceholder();
-wireUI();
-setPuzzleIndex(firstIncompleteIndex());
-ensureKeyboardMode();
-renderAll();
+const STORE = loadStore();
+
+init();
 
 /* =======================
-   Puzzles + helpers
+   init
+   ======================= */
+function init(){
+  precomputePuzzles();
+  buildKeyboard();          // must exist before enabling has-kb
+  wireUI();
+  setPuzzleIndex(firstIncompleteIndex());
+  ensureKeyboardMode(true);
+  renderAll();
+}
+
+/* =======================
+   helpers
    ======================= */
 function precomputePuzzles(){
   for(const p of PUZZLES){
-    p._ans = String(p.answer).toUpperCase();
+    p._ans = String(p.answer || "").toUpperCase();
     p._clue = String(p.clue || "").trim();
   }
 }
 function cur(){ return PUZZLES[state.i]; }
 function clamp(n,min,max){ return Math.max(min, Math.min(max,n)); }
 function isAlpha(ch){ return /^[A-Z]$/.test(ch); }
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#39;");
+}
 function hintPhraseText(h){
   if(h<=0) return "no hints";
   if(h===1) return "1 hint";
@@ -1696,15 +607,11 @@ function hintPhraseText(h){
 }
 
 /* =======================
-   Storage (minimal, no skill scoring)
+   Storage (minimal)
    ======================= */
 function canLS(){
-  try{
-    const k="__tg_test__";
-    localStorage.setItem(k,"1");
-    localStorage.removeItem(k);
-    return true;
-  }catch(e){ return false; }
+  try{ localStorage.setItem("__tg_test__","1"); localStorage.removeItem("__tg_test__"); return true; }
+  catch(e){ return false; }
 }
 function loadStore(){
   const blank = { results:{}, progress:{} };
@@ -1718,95 +625,119 @@ function loadStore(){
     return obj;
   }catch(e){ return blank; }
 }
-const STORE = loadStore();
 function saveStore(){
   if(!canLS()) return;
   try{ localStorage.setItem(LS_KEY, JSON.stringify(STORE)); }catch(e){}
 }
 function firstIncompleteIndex(){
-  for(let i=0;i<PUZZLES.length;i++){
-    const r = STORE.results[String(i)];
-    if(!(r && r.done)) return i;
-  }
+  for(let i=0;i<PUZZLES.length;i++){ if(!STORE.results[String(i)]?.done) return i; }
   return 0;
 }
 
 /* =======================
-   Navigation + load
+   Messages
+   ======================= */
+function setMsg(html){ el.msg.innerHTML = html || ""; }
+function setTransientMsg(txt, ms=1200){
+  clearTransientMsg();
+  setMsg(escapeHtml(txt));
+  state.transientTimer = setTimeout(()=>{ setMsg(""); state.transientTimer=null; }, ms);
+}
+function clearTransientMsg(){
+  if(state.transientTimer){ clearTimeout(state.transientTimer); state.transientTimer=null; }
+}
+
+/* =======================
+   Navigation + puzzle state
    ======================= */
 function setPuzzleIndex(i){
   state.i = clamp(i, 0, PUZZLES.length-1);
-  state.n = cur()._ans.length;
+  state.n = cur()._ans.length || 7;
   state.grid = Array(state.n).fill("");
   state.focus = 0;
   state.finished = false;
-  state.gaveUp = false;
+  state.hintCount = 0;
 
   const res = STORE.results[String(state.i)];
-  if(res && res.done){
+  if(res?.done){
     state.finished = true;
-    state.gaveUp = !!res.gaveUp;
-    state.hintCount = Number(res.hintCount||0) || 0;
     state.grid = cur()._ans.split("");
-    el.wrap && el.wrap.classList.add("solved");
-    setMsg(state.gaveUp ? "You gave up!" : `Correct - ${hintPhraseText(state.hintCount)}!`);
+    el.wrap.classList.add("solved");
+    setMsg(`Solved — ${hintPhraseText(res.hintCount ?? 0)}.`);
   }else{
-    el.wrap && el.wrap.classList.remove("solved");
+    el.wrap.classList.remove("solved");
     setMsg("");
   }
-  setSkillBadgePlaceholder();
+
+  const prog = STORE.progress[String(state.i)];
+  if(!state.finished && prog?.grid && Array.isArray(prog.grid) && prog.grid.length === state.n){
+    state.grid = prog.grid.map(x => (isAlpha(String(x||"").toUpperCase()) ? String(x).toUpperCase() : ""));
+    state.focus = clamp(Number(prog.focus ?? 0), 0, state.n-1);
+  }
+
+  renderAll();
+}
+function saveProgress(){
+  if(state.finished){ delete STORE.progress[String(state.i)]; saveStore(); return; }
+  STORE.progress[String(state.i)] = { grid: state.grid, focus: state.focus, ts: Date.now() };
+  saveStore();
 }
 
 /* =======================
    Render
    ======================= */
 function renderAll(){
-  renderClue();
   renderCount();
+  renderClue();
   renderGrid();
   renderButtons();
+  // keep skill badge placeholder for future use
+  if(el.skillBadgeValue) el.skillBadgeValue.textContent = "—";
+}
+function renderCount(){
+  if(!el.count) return;
+  el.count.textContent = `${state.i+1}/${PUZZLES.length}`;
+  if(el.prevBtn) el.prevBtn.setAttribute("aria-disabled", String(state.i<=0));
+  if(el.nextBtn) el.nextBtn.setAttribute("aria-disabled", String(state.i>=PUZZLES.length-1));
 }
 function renderClue(){
   if(!el.clue) return;
-  const parts = cur()._clue.trim().split(/\s+/);
-  if(parts.length >= 2){
-    const a = parts[0];
-    const b = parts.slice(1).join(" ");
-    el.clue.innerHTML =
-      `<span class="clueWord"><span class="u-w1">${escapeHtml(a)}</span></span> ` +
-      `<span class="clueWord"><span class="u-w2">${escapeHtml(b)}</span></span>`;
-  }else{
-    el.clue.textContent = cur()._clue;
-  }
-}
-function renderCount(){
-  if(el.count) el.count.textContent = `${state.i+1}/${PUZZLES.length}`;
+  const parts = cur()._clue.split(/\s+/).filter(Boolean);
+  const a = parts[0] || "";
+  const b = parts.slice(1).join(" ") || "";
+  el.clue.innerHTML = `<span class="u-w1">${escapeHtml(a)}</span> <span class="u-w2">${escapeHtml(b)}</span>`;
 }
 function renderGrid(){
   if(!el.grid) return;
+  el.grid.style.setProperty("--n", String(state.n));
   el.grid.innerHTML = "";
-  for(let i=0;i<state.n;i++){
-    const cell = document.createElement("button");
-    cell.type="button";
-    cell.className="cell";
-    if(!state.finished && i===state.focus) cell.classList.add("active");
 
+  for(let i=0;i<state.n;i++){
+    const cell = document.createElement("div");
+    cell.className = "cell" + ((!state.finished && i===state.focus) ? " active" : "");
     const inp = document.createElement("input");
+    inp.type="text";
+    inp.inputMode = "none";
+    inp.autocapitalize="none";
+    inp.autocomplete="off";
+    inp.autocorrect="off";
+    inp.spellcheck=false;
     inp.maxLength=1;
     inp.value = state.grid[i] || "";
-    const readonly = state.useKB || state.finished;
-    inp.readOnly = readonly;
-    inp.inputMode = readonly ? "none" : "text";
-    inp.tabIndex = readonly ? -1 : 0;
+    inp.readOnly = state.useKB || state.finished;
+    inp.tabIndex = state.useKB ? -1 : 0;
 
+    inp.addEventListener("focus", ()=>{ state.focus=i; renderGridActiveOnly(); });
     inp.addEventListener("keydown", (e)=>onKeyDown(e,i));
     inp.addEventListener("input", (e)=>onNativeInput(e,i));
+
     cell.addEventListener("pointerdown", (e)=>{
+      if(state.modalOpen) return;
+      e.preventDefault();
       if(state.finished) return;
       state.focus=i;
       renderGridActiveOnly();
-      if(!state.useKB) setTimeout(()=>inp.focus(),0);
-      e.preventDefault();
+      if(!state.useKB) inp.focus();
     });
 
     cell.appendChild(inp);
@@ -1822,43 +753,60 @@ function renderButtons(){
   if(el.checkBtn){
     const ready = !state.finished && state.grid.every(ch=>!!ch);
     el.checkBtn.disabled = !ready;
-    el.checkBtn.classList.toggle("ready", ready);
   }
-  if(el.prevBtn) el.prevBtn.disabled = state.i<=0;
-  if(el.nextBtn) el.nextBtn.disabled = state.i>=PUZZLES.length-1;
+  if(el.nextPuzzleBtn){
+    // visible via CSS only when solved
+    const allDone = PUZZLES.every((_,i)=>STORE.results[String(i)]?.done);
+    el.nextPuzzleBtn.disabled = allDone;
+  }
+  updateKeyboardEnabledState();
 }
 
 /* =======================
    Input
    ======================= */
-function setChar(i,ch){ state.grid[i]=ch; renderButtons(); }
+function setChar(i,ch){
+  state.grid[i]=ch;
+  saveProgress();
+  renderButtons();
+}
 function typeLetter(ch){
-  if(state.finished || !isAlpha(ch)) return;
-  setChar(state.focus, ch);
-  state.focus = clamp(state.focus+1,0,state.n-1);
+  if(state.finished || state.modalOpen) return;
+  const up = String(ch||"").slice(0,1).toUpperCase();
+  if(!isAlpha(up)) return;
+  setChar(state.focus, up);
+  state.focus = clamp(state.focus+1, 0, state.n-1);
   renderAll();
 }
 function backspace(){
-  if(state.finished) return;
+  if(state.finished || state.modalOpen) return;
   if(state.grid[state.focus]){
-    setChar(state.focus,"");
+    setChar(state.focus, "");
   }else if(state.focus>0){
     state.focus--;
-    setChar(state.focus,"");
+    setChar(state.focus, "");
   }
   renderAll();
 }
+function resetGrid(){
+  if(state.finished || state.modalOpen) return;
+  state.grid = Array(state.n).fill("");
+  state.focus = 0;
+  saveProgress();
+  setMsg("");
+  renderAll();
+}
 function onKeyDown(e, idx){
-  if(state.useKB || state.finished) return;
-  if(e.key==="Backspace"){ e.preventDefault(); state.focus=idx; backspace(); }
-  if(e.key==="Enter"){ e.preventDefault(); onCheck(); }
+  if(state.useKB || state.finished || state.modalOpen) return;
+  if(e.key==="Backspace"){ e.preventDefault(); state.focus=idx; backspace(); return; }
+  if(e.key==="Enter"){ e.preventDefault(); onCheck(); return; }
   if(e.key.length===1){
     const up=e.key.toUpperCase();
     if(isAlpha(up)){ e.preventDefault(); state.focus=idx; typeLetter(up); }
   }
 }
 function onNativeInput(e, idx){
-  if(state.useKB || state.finished){
+  if(state.useKB || state.finished || state.modalOpen){
     e.target.value = state.grid[idx] || "";
     return;
   }
@@ -1873,7 +821,7 @@ function onNativeInput(e, idx){
    Check
    ======================= */
 function onCheck(){
-  if(state.finished) return;
+  if(state.finished || state.modalOpen) return;
   if(state.grid.some(ch=>!ch)){
     setTransientMsg(`Fill all ${state.n} tiles first.`, 1400);
     return;
@@ -1881,11 +829,11 @@ function onCheck(){
   const attempt = state.grid.join("").toUpperCase();
   if(attempt===cur()._ans){
     state.finished=true;
-    el.wrap && el.wrap.classList.add("solved");
-    STORE.results[String(state.i)] = {done:true, gaveUp:false, hintCount: state.hintCount, ts:Date.now()};
+    el.wrap.classList.add("solved");
+    STORE.results[String(state.i)] = { done:true, hintCount: state.hintCount, ts:Date.now() };
+    delete STORE.progress[String(state.i)];
     saveStore();
-    setSkillBadgePlaceholder();
-    setMsg(`Correct - ${hintPhraseText(state.hintCount)}!`);
+    setMsg(`Correct — ${hintPhraseText(state.hintCount)}!`);
     renderAll();
   }else{
     setTransientMsg("Not quite.", 1200);
@@ -1893,58 +841,115 @@ function onCheck(){
 }
 
 /* =======================
-   UI wiring
-   ======================= */
-function wireUI(){
-  if(el.hintsBtn) el.hintsBtn.addEventListener("click", (e)=>e.preventDefault()); // no-op
-  if(el.checkBtn) el.checkBtn.addEventListener("click", (e)=>{ e.preventDefault(); onCheck(); });
-  if(el.prevBtn) el.prevBtn.addEventListener("click", (e)=>{ e.preventDefault(); setPuzzleIndex(state.i-1); renderAll(); });
-  if(el.nextBtn) el.nextBtn.addEventListener("click", (e)=>{ e.preventDefault(); setPuzzleIndex(state.i+1); renderAll(); });
-}
-
-/* =======================
-   Messages
-   ======================= */
-function setMsg(html){
-  if(!el.msg) return;
-  el.msg.innerHTML = html || "";
-}
-function setTransientMsg(txt, ms=1200){
-  clearTransientMsg();
-  setMsg(escapeHtml(txt));
-  state.transientTimer=setTimeout(()=>{ setMsg(""); state.transientTimer=null; }, ms);
-}
-function clearTransientMsg(){
-  if(state.transientTimer){ clearTimeout(state.transientTimer); state.transientTimer=null; }
-}
-function escapeHtml(s){
-  return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
-                  .replaceAll('"',"&quot;").replaceAll("'","&#39;");
-}
-
-/* =======================
-   Skill badge placeholder (kept)
-   ======================= */
-function setSkillBadgePlaceholder(){
-  if(el.skillBadgeValue) el.skillBadgeValue.textContent="—";
-}
-
-/* =======================
-   Custom keyboard (optional)
+   Keyboard (minimal)
    ======================= */
 function shouldUseCustomKB(){
   const coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-  return coarse || window.innerWidth < 740;
+  const small  = window.matchMedia && window.matchMedia("(max-width: 920px)").matches;
+  return !!(coarse && small);
 }
-function ensureKeyboardMode(){
+function ensureKeyboardMode(rerender=false){
   const want = shouldUseCustomKB();
   if(state.useKB===want) return;
-  state.useKB=want;
+  state.useKB = want;
   htmlEl.classList.toggle("has-kb", want);
+  if(rerender) renderAll();
+}
+function buildKeyboard(){
+  if(!el.kbHost) return;
+  el.kbHost.innerHTML = "";
+  const kb = document.createElement("div");
+  kb.className = "kb";
+
+  const rows = ["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"];
+  for(const row of rows){
+    const r = document.createElement("div");
+    r.className = "kbRow";
+    for(const ch of row){
+      r.appendChild(makeKey(ch, "letter", ch));
+    }
+    kb.appendChild(r);
+  }
+
+  const r4 = document.createElement("div");
+  r4.className = "kbRow";
+  r4.appendChild(makeKey("RESET","reset"));
+  r4.appendChild(makeKey("⌫","delete"));
+  r4.appendChild(makeKey("ENTER","enter"));
+  kb.appendChild(r4);
+
+  el.kbHost.appendChild(kb);
+
+  el.kbHost.addEventListener("pointerdown", (e)=>{
+    const btn = e.target.closest("button.kbKey");
+    if(!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if(btn.classList.contains("is-disabled")) return;
+
+    const kind = btn.dataset.kind;
+    const val  = btn.dataset.val || "";
+    if(kind==="letter") typeLetter(val);
+    else if(kind==="delete") backspace();
+    else if(kind==="enter") onCheck();
+    else if(kind==="reset") resetGrid();
+  }, {passive:false});
+}
+function makeKey(label, kind, val){
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "kbKey";
+  b.textContent = label;
+  b.dataset.kind = kind;
+  if(val) b.dataset.val = val;
+  if(kind==="reset") b.classList.add("wide","reset");
+  if(kind==="delete") b.classList.add("wide","delete");
+  if(kind==="enter") b.classList.add("wide","enter");
+  return b;
+}
+function updateKeyboardEnabledState(){
+  if(!el.kbHost) return;
+  const dis = state.finished || state.modalOpen;
+  el.kbHost.querySelectorAll(".kbKey").forEach(k=>k.classList.toggle("is-disabled", dis));
 }
 
+/* =======================
+   UI wiring
+   ======================= */
+function wireUI(){
+  el.hintsBtn?.addEventListener("click", (e)=>{ e.preventDefault(); /* no-op */ });
+  el.checkBtn?.addEventListener("click", (e)=>{ e.preventDefault(); onCheck(); });
+  el.prevBtn?.addEventListener("click", (e)=>{ e.preventDefault(); if(state.i>0) setPuzzleIndex(state.i-1); });
+  el.nextBtn?.addEventListener("click", (e)=>{ e.preventDefault(); if(state.i<PUZZLES.length-1) setPuzzleIndex(state.i+1); });
+
+  el.nextPuzzleBtn?.addEventListener("click", (e)=>{
+    e.preventDefault();
+    setPuzzleIndex(firstIncompleteIndex());
+  });
+
+  // Help modal
+  el.helpBtn?.addEventListener("click", ()=>openModal(el.helpOverlay));
+  el.helpClose?.addEventListener("click", ()=>closeModal(el.helpOverlay));
+  el.helpOverlay?.addEventListener("pointerdown", (e)=>{
+    if(e.target === el.helpOverlay) closeModal(el.helpOverlay);
+  }, {passive:true});
+
+  window.addEventListener("resize", ()=>ensureKeyboardMode(true), {passive:true});
+  if(window.visualViewport) window.visualViewport.addEventListener("resize", ()=>ensureKeyboardMode(true), {passive:true});
+}
+
+function openModal(overlay){
+  if(!overlay) return;
+  state.modalOpen = true;
+  overlay.setAttribute("aria-hidden","false");
+  updateKeyboardEnabledState();
+}
+function closeModal(overlay){
+  if(!overlay) return;
+  overlay.setAttribute("aria-hidden","true");
+  state.modalOpen = false;
+  updateKeyboardEnabledState();
+}
 </script>
-
-
 </body>
 </html>
