@@ -432,35 +432,6 @@ html.has-kb .kbKey *{
     background:#fff;
     position:relative;
   }
-  /* ===== Timed reveal mode scaffolding ===== */
-
-/* Locked letter indicator: tiny corner triangle (minimal visual disruption) */
-.cell.is-locked::before{
-  content:"";
-  position:absolute;
-  top:0; right:0;
-  width:0; height:0;
-  border-top: 12px solid rgba(0,0,0,.18);
-  border-left: 12px solid transparent;
-  pointer-events:none;
-}
-
-/* Pink selectable reveal cells (only applies when JS adds the class) */
-.cell.revealPickCell{
-  background: var(--bad) !important;
-  cursor:pointer;
-  box-shadow: 0 0 0 2px rgba(0,0,0,.10) inset,
-              0 0 0 3px rgba(241,89,130,.20);
-}
-
-/* Whole-board highlight while selecting a letter to reveal */
-#wrap.revealPick :is(.gridDock,#gridDock){
-  box-shadow:
-    0 3px 8px rgba(0,0,0,.08),
-    0 0 0 3px rgba(241,89,130,.55),
-    0 0 0 7px rgba(241,89,130,.18);
-}
-
 
   .cell.active::after{
     content:"";
@@ -929,16 +900,7 @@ html.has-kb .kbKey *{
     box-shadow:0 7px 0 rgba(0,0,0,.16);
   }
   .btn:active{ transform:translateY(1px); box-shadow:0 6px 0 rgba(0,0,0,.16); }
-  /* Hint button can show a timed fill (used in timed-reveal mode) */
-.btn.hints{
-  --hintPct:0%;
-  background:linear-gradient(90deg,
-    rgba(241,89,130,.38) 0%,
-    rgba(241,89,130,.38) var(--hintPct),
-    #fff3bd var(--hintPct),
-    #fff3bd 100%);
-}
-
+  .btn.hints{ background:#fff3bd; }
   .btn.check{ background:rgba(255,255,255,.25); opacity:.55; }
   .btn.check.ready{ opacity:1; background:var(--submit); }
   .btn:disabled{
@@ -1804,12 +1766,6 @@ const state = {
   pendingFly: null,
   flyAttempts: 0,
 
-  // timed reveal (experimental; persisted per puzzle)
-  trElapsedMs: 0,
-  trStage: 0,
-  trPickActive: false,
-  trLocked: {},
-
   // Classic-only: show grid colours only while press-holding a trigram
   classicHoldColors: false,
   classicHoldPending: false,
@@ -1821,6 +1777,18 @@ const state = {
 /* =======================
    Flags (prebuilt objects; avoids realloc each call)
    ======================= */
+const FLAGS_ASSISTED = {
+  allowClueTapPlace: true,
+  allowClueTapCycle: true,
+  allowHintTapPlace: true,
+  allowHint3TapInsert: true,
+  allowDragTrigrams: true,
+  allowAutoPromote: true,
+  showGridColors: true,
+  showStatusMessages: true,
+  showBadCellColor: true,
+  checkFeedback: "detailed",
+};
 const FLAGS_CLASSIC = {
   allowClueTapPlace: false,
   allowClueTapCycle: false,
@@ -1833,30 +1801,9 @@ const FLAGS_CLASSIC = {
   showBadCellColor: true,
   checkFeedback: "minimal",
 };
+function flags(){ return state.assist ? FLAGS_ASSISTED : FLAGS_CLASSIC; }
 
-/* =======================
-   Timed Reveal test mode (scaffolding)
-   NOTE: leave OFF until the timer/locked-letter logic is added in later steps.
-   ======================= */
-const TIMED_REVEAL_MODE = false;
 
-const FLAGS_TIMED_REVEAL = {
-  allowClueTapPlace: false,
-  allowClueTapCycle: false,
-  allowHintTapPlace: false,     // no hint-track interactions in timed mode
-  allowHint3TapInsert: false,   // hint3 becomes “reveal remaining letter” later
-  allowDragTrigrams: false,
-  allowAutoPromote: false,      // critical: avoids promotion removing singles
-  showGridColors: true,
-  showStatusMessages: true,
-  showBadCellColor: true,
-  checkFeedback: "minimal",
-};
-
-function flags(){
-  if(TIMED_REVEAL_MODE) return FLAGS_TIMED_REVEAL;
-  return state.assist ? FLAGS_ASSISTED : FLAGS_CLASSIC;
-}
 
 
 /* =======================
@@ -1929,16 +1876,11 @@ function renderSmart(){
 
   // Persist in-progress state 
   if(!state.finished && !state.drag){
-    const hasTimedRevealState =
-      !!(state.trStage || state.trElapsedMs || state.trPickActive) ||
-      (state.trLocked && typeof state.trLocked === "object" && Object.keys(state.trLocked).length);
-
     const meaningful =
       !!state.assist ||
       !!(state.hintsUsed && (state.hintsUsed.w1 || state.hintsUsed.w2 || state.hintsUsed.extras)) ||
       !!(state.placed && (state.placed.w1 || state.placed.w2)) ||
-      !!(state.singles && state.singles.length) ||
-      hasTimedRevealState;
+      !!(state.singles && state.singles.length);
 
     if(meaningful) saveInProgressForCurrentPuzzle();
   }
@@ -2162,18 +2104,12 @@ function saveInProgressForCurrentPuzzle(){
   const hasAnyLetters = gridChars.some(ch => ch && ch !== "");
 
   // Determine whether we have anything meaningful to save
-  const hasTimedRevealState =
-    !!(state.trStage || state.trElapsedMs || state.trPickActive) ||
-    (state.trLocked && typeof state.trLocked === "object" && Object.keys(state.trLocked).length);
-
   const somethingToSave =
     hasAnyLetters ||
     state.hintsUsed.w1 ||
     state.hintsUsed.w2 ||
     state.hintsUsed.extras ||
-    state.assist ||  // Assist mode on counts as meaningful state
-    hasTimedRevealState;
-
+    state.assist;  // Assist mode on counts as meaningful state
 
   if(!somethingToSave){
     // Nothing typed, nothing hinted → clear progress
@@ -2201,23 +2137,6 @@ function saveInProgressForCurrentPuzzle(){
       (typeof state.wrongCheckCountAtSegmentStart === "number" ? state.wrongCheckCountAtSegmentStart : 0),
   };
 
-  // Timed reveal snapshot (wired up in later steps)
-  const locked = {};
-  if(state.trLocked && typeof state.trLocked === "object"){
-    for(const [k,v] of Object.entries(state.trLocked)){
-      const idx = parseInt(k, 10);
-      if(!Number.isFinite(idx) || idx < 0 || idx >= n) continue;
-      const ch = String(v || "").toLowerCase();
-      if(ch && isAlpha(ch)) locked[String(idx)] = ch[0];
-    }
-  }
-  const timedReveal = {
-    elapsedMs: Math.max(0, Math.round(state.trElapsedMs || 0)),
-    stage: clamp(state.trStage || 0, 0, 9),
-    pickActive: !!state.trPickActive,
-    locked
-  };
-
   data.progress[id] = {
     puzzleIndex: state.i,
     hintsUsed: {
@@ -2226,7 +2145,8 @@ function saveInProgressForCurrentPuzzle(){
       extras: !!(state.hintsUsed && state.hintsUsed.extras),
     },
     hintCount: clamp(state.hintCount || 0, 0, 3),
-    assistOn: !!state.        // letters
+    assistOn: !!state.assist,
+    grid: gridChars,        // letters
     focusIdx: focus,
     metrics,
     ts: Date.now()
@@ -2301,26 +2221,6 @@ function applyStoredProgressToCurrentPuzzle(){
   }
   // If no metrics: we keep whatever resetAllForPuzzle()/skillResetForPuzzle set up,
   // which is a clean baseline for this puzzle.
-
-  // ---- Restore timed reveal state if present ----
-  const tr = saved.timedReveal;
-  state.trElapsedMs = (tr && typeof tr.elapsedMs === "number" && Number.isFinite(tr.elapsedMs))
-    ? Math.max(0, Math.round(tr.elapsedMs))
-    : 0;
-  state.trStage = (tr && typeof tr.stage === "number" && Number.isFinite(tr.stage))
-    ? clamp(tr.stage, 0, 9)
-    : 0;
-  state.trPickActive = !!(tr && tr.pickActive);
-
-  state.trLocked = {};
-  if(tr && tr.locked && typeof tr.locked === "object"){
-    for(const [k,v] of Object.entries(tr.locked)){
-      const idx = parseInt(k, 10);
-      if(!Number.isFinite(idx) || idx < 0 || idx >= n) continue;
-      const ch = String(v || "").toLowerCase();
-      if(ch && isAlpha(ch)) state.trLocked[String(idx)] = ch[0];
-    }
-  }
 
   updateModePill();
   return true;
@@ -5508,12 +5408,6 @@ function resetAllForPuzzle(){
   state.focusIdx = 0;
   state.sel1 = null;
   state.sel2 = null;
-
-  // timed reveal
-  state.trElapsedMs = 0;
-  state.trStage = 0;
-  state.trPickActive = false;
-  state.trLocked = {};
 
   setMsg("");
   state.overlapMsgOn = false;
