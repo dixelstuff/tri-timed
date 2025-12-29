@@ -1811,7 +1811,6 @@ const state = {
   trLocked: {},
 
   // Classic-only: show grid colours only while press-holding a trigram
-
   classicHoldColors: false,
   classicHoldPending: false,
   classicHoldPointerId: null,
@@ -1944,6 +1943,8 @@ function renderSmart(){
     if(meaningful) saveInProgressForCurrentPuzzle();
   }
 
+  requestAnimationFrame(updateHintTrackPlacement);
+}
 
 
 
@@ -2198,7 +2199,7 @@ function saveInProgressForCurrentPuzzle(){
       (typeof state.effortAtSegmentStart === "number" ? state.effortAtSegmentStart : 0),
     wrongCheckCountAtSegmentStart:
       (typeof state.wrongCheckCountAtSegmentStart === "number" ? state.wrongCheckCountAtSegmentStart : 0),
-    };
+  };
 
   // Timed reveal snapshot (wired up in later steps)
   const locked = {};
@@ -2218,7 +2219,6 @@ function saveInProgressForCurrentPuzzle(){
   };
 
   data.progress[id] = {
-
     puzzleIndex: state.i,
     hintsUsed: {
       w1: !!(state.hintsUsed && state.hintsUsed.w1),
@@ -2226,9 +2226,7 @@ function saveInProgressForCurrentPuzzle(){
       extras: !!(state.hintsUsed && state.hintsUsed.extras),
     },
     hintCount: clamp(state.hintCount || 0, 0, 3),
-    assistOn: !!state.assist,
-    timedReveal,
-    grid: gridChars,
+    assistOn: !!state.        // letters
     focusIdx: focus,
     metrics,
     ts: Date.now()
@@ -2325,7 +2323,6 @@ function applyStoredProgressToCurrentPuzzle(){
   }
 
   updateModePill();
-
   return true;
 }
 
@@ -5519,7 +5516,6 @@ function resetAllForPuzzle(){
   state.trLocked = {};
 
   setMsg("");
-
   state.overlapMsgOn = false;
   state.lockMsg = false;
 
