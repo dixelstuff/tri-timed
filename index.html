@@ -4524,23 +4524,6 @@ function firstTrigramOfWord(group){
   return w.slice(0, 3);
 }
 
-
-
-  const curTri = norm(pl.tri);
-  const curPos = w.indexOf(curTri);
-  if(group === 'w1') state.sel1 = (curPos >= 0) ? clamp(curPos, 0, maxStart) : 0;
-  else state.sel2 = (curPos >= 0) ? clamp(curPos, 0, maxStart) : 0;
-
-  let s = (group === 'w1' ? state.sel1 : state.sel2);
-  if(s == null) s = 0;
-  s = (s + 1) % (maxStart + 1);
-  if(group === 'w1') state.sel1 = s; else state.sel2 = s;
-
-  const tri = w.slice(s, s+3);
-  placeTrigram(group, tri);
-}
-
-
 /* =======================
    Hint track UI
    ======================= */
