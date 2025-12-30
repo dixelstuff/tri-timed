@@ -432,6 +432,55 @@ html.has-kb .kbKey *{
     background:#fff;
     position:relative;
   }
+  /* ===== Timed reveal mode scaffolding ===== */
+
+/* Locked letter indicator: tiny corner triangle (minimal visual disruption) */
+.cell.is-locked::before{
+  content:"";
+  position:absolute;
+  top:0; right:0;
+  width:0; height:0;
+  border-top: 12px solid rgba(0,0,0,.18);
+  border-left: 12px solid transparent;
+  pointer-events:none;
+}
+
+/* Pink selectable reveal cells (only applies when JS adds the class) */
+.cell.revealPickCell{
+  background: var(--bad) !important;
+  cursor:pointer;
+  box-shadow: 0 0 0 2px rgba(0,0,0,.10) inset,
+              0 0 0 3px rgba(241,89,130,.20);
+}
+
+/* Whole-board highlight while selecting a letter to reveal */
+#wrap.revealPick :is(.gridDock,#gridDock){
+  box-shadow:
+    0 3px 8px rgba(0,0,0,.08),
+    0 0 0 3px rgba(241,89,130,.55),
+    0 0 0 7px rgba(241,89,130,.18);
+}
+
+
+  .cell.locked{
+    background:linear-gradient(135deg, #fce8ff, #ffeef8);
+    box-shadow:inset 0 0 0 2px rgba(0,0,0,.25);
+  }
+  .cell.locked input{
+    color:rgba(0,0,0,.6);
+  }
+
+  .cell.hint-pink{
+    background:#ffd3e6;
+  }
+  .cell.hint-highlight::before{
+    content:"";
+    position:absolute;
+    inset:2px;
+    border:2px dashed rgba(0,0,0,.32);
+    border-radius:8px;
+    pointer-events:none;
+  }
 
   .cell.active::after{
     content:"";
@@ -900,7 +949,27 @@ html.has-kb .kbKey *{
     box-shadow:0 7px 0 rgba(0,0,0,.16);
   }
   .btn:active{ transform:translateY(1px); box-shadow:0 6px 0 rgba(0,0,0,.16); }
-  .btn.hints{ background:#fff3bd; }
+  /* Hint button can show a timed fill (used in timed-reveal mode) */
+  .btn.hints{
+    background:#fff3bd;
+    position:relative;
+    overflow:hidden;
+  }
+  .btn.hints::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(90deg, rgba(255,255,255,.85), rgba(255,210,253,.95));
+    width:var(--hint-fill, 0%);
+    pointer-events:none;
+    transition:width .25s ease;
+    z-index:0;
+  }
+  .btn.hints span{
+    position:relative;
+    z-index:1;
+  }
+
   .btn.check{ background:rgba(255,255,255,.25); opacity:.55; }
   .btn.check.ready{ opacity:1; background:var(--submit); }
   .btn:disabled{
@@ -1701,6 +1770,9 @@ const TWOTRI_TEXT   = "Two trigrams from same word";
 const OVERLAP_TEXT  = "1-letter overlap allowed ✓";
 const OVERLAP2_TEXT = "2-letter overlap not allowed";
 const HINT_IDS = { w1:'w1', w2:'w2', extras:'extras' };
+const HINT_STAGE_ONE_MS = 150 * 1000;
+const HINT_STAGE_TWO_MS = 240 * 1000;
+const HINT_PINK_CELLS = [1,3,5];
 
 /* =======================
    State
@@ -1766,7 +1838,26 @@ const state = {
   pendingFly: null,
   flyAttempts: 0,
 
+  lockedLetters: {},
+  hintTimelineActive: false,
+  hintTimelineStage: 0,
+  hintTimelineStart: 0,
+  hintStageStartedAt: 0,
+  hintPinkSelectable: false,
+  hintHighlight: false,
+  hintProgressTO: null,
+  hintTimer1: null,
+  hintTimer2: null,
+
+
+  // timed reveal (experimental; persisted per puzzle)
+  trElapsedMs: 0,
+  trStage: 0,
+  trPickActive: false,
+  trLocked: {},
+
   // Classic-only: show grid colours only while press-holding a trigram
+
   classicHoldColors: false,
   classicHoldPending: false,
   classicHoldPointerId: null,
@@ -1777,18 +1868,6 @@ const state = {
 /* =======================
    Flags (prebuilt objects; avoids realloc each call)
    ======================= */
-const FLAGS_ASSISTED = {
-  allowClueTapPlace: true,
-  allowClueTapCycle: true,
-  allowHintTapPlace: true,
-  allowHint3TapInsert: true,
-  allowDragTrigrams: true,
-  allowAutoPromote: true,
-  showGridColors: true,
-  showStatusMessages: true,
-  showBadCellColor: true,
-  checkFeedback: "detailed",
-};
 const FLAGS_CLASSIC = {
   allowClueTapPlace: false,
   allowClueTapCycle: false,
@@ -1801,9 +1880,30 @@ const FLAGS_CLASSIC = {
   showBadCellColor: true,
   checkFeedback: "minimal",
 };
-function flags(){ return state.assist ? FLAGS_ASSISTED : FLAGS_CLASSIC; }
 
+/* =======================
+   Timed Reveal test mode (scaffolding)
+   NOTE: leave OFF until the timer/locked-letter logic is added in later steps.
+   ======================= */
+const TIMED_REVEAL_MODE = false;
 
+const FLAGS_TIMED_REVEAL = {
+  allowClueTapPlace: false,
+  allowClueTapCycle: false,
+  allowHintTapPlace: false,     // no hint-track interactions in timed mode
+  allowHint3TapInsert: false,   // hint3 becomes “reveal remaining letter” later
+  allowDragTrigrams: false,
+  allowAutoPromote: false,      // critical: avoids promotion removing singles
+  showGridColors: true,
+  showStatusMessages: true,
+  showBadCellColor: true,
+  checkFeedback: "minimal",
+};
+
+function flags(){
+  if(TIMED_REVEAL_MODE) return FLAGS_TIMED_REVEAL;
+  return state.assist ? FLAGS_ASSISTED : FLAGS_CLASSIC;
+}
 
 
 /* =======================
@@ -1876,17 +1976,20 @@ function renderSmart(){
 
   // Persist in-progress state 
   if(!state.finished && !state.drag){
+    const hasTimedRevealState =
+      !!(state.trStage || state.trElapsedMs || state.trPickActive) ||
+      (state.trLocked && typeof state.trLocked === "object" && Object.keys(state.trLocked).length);
+
     const meaningful =
       !!state.assist ||
       !!(state.hintsUsed && (state.hintsUsed.w1 || state.hintsUsed.w2 || state.hintsUsed.extras)) ||
       !!(state.placed && (state.placed.w1 || state.placed.w2)) ||
-      !!(state.singles && state.singles.length);
+      !!(state.singles && state.singles.length) ||
+      hasTimedRevealState;
 
     if(meaningful) saveInProgressForCurrentPuzzle();
   }
 
-  requestAnimationFrame(updateHintTrackPlacement);
-}
 
 
 
@@ -2103,13 +2206,23 @@ function saveInProgressForCurrentPuzzle(){
   const gridChars = snapshotGridChars();
   const hasAnyLetters = gridChars.some(ch => ch && ch !== "");
 
+  const hasLocked = state.lockedLetters && Object.keys(state.lockedLetters).length > 0;
+  const hasTimeline = state.hintTimelineActive || (state.hintTimelineStage > 0);
+
   // Determine whether we have anything meaningful to save
+  const hasTimedRevealState =
+    !!(state.trStage || state.trElapsedMs || state.trPickActive) ||
+    (state.trLocked && typeof state.trLocked === "object" && Object.keys(state.trLocked).length);
+
   const somethingToSave =
     hasAnyLetters ||
     state.hintsUsed.w1 ||
     state.hintsUsed.w2 ||
     state.hintsUsed.extras ||
-    state.assist;  // Assist mode on counts as meaningful state
+    state.assist ||  // Assist mode on counts as meaningful state
+    hasLocked || hasTimeline ||
+    hasTimedRevealState;
+
 
   if(!somethingToSave){
     // Nothing typed, nothing hinted → clear progress
@@ -2135,9 +2248,27 @@ function saveInProgressForCurrentPuzzle(){
       (typeof state.effortAtSegmentStart === "number" ? state.effortAtSegmentStart : 0),
     wrongCheckCountAtSegmentStart:
       (typeof state.wrongCheckCountAtSegmentStart === "number" ? state.wrongCheckCountAtSegmentStart : 0),
+    };
+
+  // Timed reveal snapshot (wired up in later steps)
+  const locked = {};
+  if(state.trLocked && typeof state.trLocked === "object"){
+    for(const [k,v] of Object.entries(state.trLocked)){
+      const idx = parseInt(k, 10);
+      if(!Number.isFinite(idx) || idx < 0 || idx >= n) continue;
+      const ch = String(v || "").toLowerCase();
+      if(ch && isAlpha(ch)) locked[String(idx)] = ch[0];
+    }
+  }
+  const timedReveal = {
+    elapsedMs: Math.max(0, Math.round(state.trElapsedMs || 0)),
+    stage: clamp(state.trStage || 0, 0, 9),
+    pickActive: !!state.trPickActive,
+    locked
   };
 
   data.progress[id] = {
+
     puzzleIndex: state.i,
     hintsUsed: {
       w1: !!(state.hintsUsed && state.hintsUsed.w1),
@@ -2146,8 +2277,18 @@ function saveInProgressForCurrentPuzzle(){
     },
     hintCount: clamp(state.hintCount || 0, 0, 3),
     assistOn: !!state.assist,
-    grid: gridChars,        // letters
+    timedReveal,
+    grid: gridChars,
     focusIdx: focus,
+    lockedLetters: state.lockedLetters || {},
+    hintTimeline: {
+      active: !!state.hintTimelineActive,
+      stage: state.hintTimelineStage || 0,
+      start: state.hintTimelineStart || 0,
+      stageStart: state.hintStageStartedAt || 0,
+      highlight: !!state.hintHighlight,
+      pinkSelectable: !!state.hintPinkSelectable,
+    },
     metrics,
     ts: Date.now()
   };
@@ -2177,6 +2318,15 @@ function applyStoredProgressToCurrentPuzzle(){
   state.assist = !!saved.assistOn;
   state.assistLocked = !!saved.assistOn;
 
+  state.lockedLetters = (saved.lockedLetters && typeof saved.lockedLetters === "object") ? saved.lockedLetters : {};
+  state.hintTimelineActive = !!(saved.hintTimeline && saved.hintTimeline.active);
+  state.hintTimelineStage = saved.hintTimeline ? (saved.hintTimeline.stage || 0) : 0;
+  state.hintTimelineStart = saved.hintTimeline ? (saved.hintTimeline.start || 0) : 0;
+  state.hintStageStartedAt = saved.hintTimeline ? (saved.hintTimeline.stageStart || 0) : 0;
+  state.hintHighlight = !!(saved.hintTimeline && saved.hintTimeline.highlight);
+  state.hintPinkSelectable = !!(saved.hintTimeline && saved.hintTimeline.pinkSelectable);
+
+
   // Restore grid letters as singles (no placed trigrams; they can be auto-promoted again if needed)
   state.placed = { w1:null, w2:null };
   state.singles = [];
@@ -2184,6 +2334,7 @@ function applyStoredProgressToCurrentPuzzle(){
 
   for(let i=0; i<Math.min(n, chars.length); i++){
     const ch = String(chars[i] || "").toLowerCase();
+    if(lockedLetterAt(i)) continue;
     if(ch && isAlpha(ch)){
       state.singles.push({ id: uid(), ch, idx:i });
     }
@@ -2222,7 +2373,29 @@ function applyStoredProgressToCurrentPuzzle(){
   // If no metrics: we keep whatever resetAllForPuzzle()/skillResetForPuzzle set up,
   // which is a clean baseline for this puzzle.
 
+  // ---- Restore timed reveal state if present ----
+  const tr = saved.timedReveal;
+  state.trElapsedMs = (tr && typeof tr.elapsedMs === "number" && Number.isFinite(tr.elapsedMs))
+    ? Math.max(0, Math.round(tr.elapsedMs))
+    : 0;
+  state.trStage = (tr && typeof tr.stage === "number" && Number.isFinite(tr.stage))
+    ? clamp(tr.stage, 0, 9)
+    : 0;
+  state.trPickActive = !!(tr && tr.pickActive);
+
+  state.trLocked = {};
+  if(tr && tr.locked && typeof tr.locked === "object"){
+    for(const [k,v] of Object.entries(tr.locked)){
+      const idx = parseInt(k, 10);
+      if(!Number.isFinite(idx) || idx < 0 || idx >= n) continue;
+      const ch = String(v || "").toLowerCase();
+      if(ch && isAlpha(ch)) state.trLocked[String(idx)] = ch[0];
+    }
+  }
+
   updateModePill();
+  ensureHintTimersAfterRestore();
+
   return true;
 }
 
@@ -2830,8 +3003,30 @@ function trigramAtIndex(idx){
   }
   return null;
 }
+
+function lockedLetterAt(idx){
+  if(!state.lockedLetters) return null;
+  const ch = state.lockedLetters[idx];
+  if(ch == null) return null;
+  const s = String(ch || "").trim();
+  return s ? s : null;
+}
+function isHintPinkCell(idx){ return HINT_PINK_CELLS.includes(idx); }
+function timedHintActive(){ return !!state.hintTimelineActive; }
+function canEditIndex(idx){
+  if(lockedLetterAt(idx)) return false;
+  if(!timedHintActive()) return true;
+  if(state.hintPinkSelectable) return isHintPinkCell(idx);
+  return false;
+}
+function hintPlacementBlocked(){
+  const hasLocked = state.lockedLetters && Object.keys(state.lockedLetters).length > 0;
+  return timedHintActive() || hasLocked;
+}
 function singleAt(idx){ return state.singles.find(s => s.idx === idx) || null; }
 function cellChar(idx){
+  const locked = lockedLetterAt(idx);
+  if(locked) return locked;
   const t = trigramAtIndex(idx);
   if(t) return t.tri[t.offset];
   const s = singleAt(idx);
@@ -2850,6 +3045,7 @@ function deleteTrigramGroup(group){
   return true;
 }
 function deleteAtIndex(idx){
+  if(lockedLetterAt(idx)) return false;
   const t = trigramAtIndex(idx);
   if(t) return deleteTrigramGroup(t.group);
   const s = singleAt(idx);
@@ -2974,6 +3170,7 @@ function typeLetterAtIndex(idx, ch){
   const i = clamp(idx, 0, n-1);
   const lower = String(ch || "").slice(0,1).toLowerCase();
   if(!isAlpha(lower)) return;
+  if(!canEditIndex(i)) return;
 
   // Capture what was there BEFORE dissolving (for effort scoring correctness)
   const prev = String(cellChar(i) || "").toLowerCase();
@@ -3011,6 +3208,7 @@ function typeLetterIntoGrid(letter){
 function backspaceAtIndexClassic(i){
   const n = getN();
   let idx = clamp(i ?? (state.focusIdx ?? 0), 0, n-1);
+  if(!canEditIndex(idx)) return false;
 
   // Backspace semantics: if current cell is empty, move left
   if(!cellChar(idx)){
@@ -3074,6 +3272,7 @@ function backspaceAtIndex(i){
   // Assisted: keep existing trigram-delete behaviour
   const n = getN();
   const idx = clamp(i ?? (state.focusIdx ?? 0), 0, n-1);
+  if(!canEditIndex(idx)) return false;
 
   const tHere = trigramAtIndex(idx);
   if(tHere){
@@ -3518,6 +3717,7 @@ function setResultSkillMsg(line1, skill){
 function onCheck(){
   if(state.finished) return;
   if(state.modalOpen) return;
+      if(timedHintActive() && !canEditIndex(i)){ e.preventDefault(); return; }
   clearTransientOnAnyChange();
 
   const n = getN();
@@ -3988,6 +4188,7 @@ function beginDragWithThreshold(e, startFn){
   window.addEventListener('pointercancel', onCancel, {once:true});
 }
 function startDragTrigram(ev, group, tri, idx0, start0){
+  if(hintPlacementBlocked()) return;
   // Classic mode: reveal colours while holding/dragging a trigram (no flash delay)
   if(!state.assist){
     clearClassicHoldTimer();
@@ -4201,6 +4402,7 @@ function triForClue(group){
    Placing / cycling
    ======================= */
 function placeTrigram(group, tri, opts = {}){
+  if(hintPlacementBlocked()) return false;
   const f = flags();
   if(!f.allowClueTapPlace && !f.allowHintTapPlace) return false;
   if(state.finished) return false;
@@ -4279,6 +4481,7 @@ function placeTrigram(group, tri, opts = {}){
 function cyclePlacedTrigram(group, opts = {}){
   if(!flags().allowClueTapCycle) return;
   if(state.finished) return;
+  if(hintPlacementBlocked()) return;
 
   const pl = state.placed[group];
   if(!pl) return;
@@ -4417,6 +4620,10 @@ function renderHintTrack(){
   el.trackW1.style.display = "none";
   el.trackW2.style.display = "none";
   el.trackExtras.style.display = "none";
+
+  if(state.hintTimelineActive){
+    return;
+  }
 
   if(state.hintsUsed.w1){
     el.trackW1.appendChild(
@@ -4920,6 +5127,8 @@ function renderGrid(stealFocus=true){
     }
 
     const tri = trigramAtIndex(i);
+    const locked = lockedLetterAt(i);
+    const isPink = isHintPinkCell(i);
 
     if(!revealed && showColorsNow && tri){
       if(overlapSet.has(i)) cell.classList.add('bg-ol');
@@ -4932,6 +5141,10 @@ function renderGrid(stealFocus=true){
     if(!revealed && f.allowDragTrigrams && tri){
       cell.classList.add('grabbable');
     }
+
+    if(locked) cell.classList.add('locked');
+    if(!revealed && isPink) cell.classList.add('hint-pink');
+    if(!revealed && state.hintHighlight && isPink) cell.classList.add('hint-highlight');
 
     const input = document.createElement('input');
     input.type = "text";
@@ -4946,7 +5159,15 @@ function renderGrid(stealFocus=true){
     input.name = "x-"+i;
     input.enterKeyHint = "done";
 
-    const ro = (!!tri && f.allowAutoPromote) || revealed || state.useCustomKB;
+    let ro = (!!tri && f.allowAutoPromote) || revealed || state.useCustomKB;
+    if(locked) ro = true;
+    if(timedHintActive()){
+      if(state.hintPinkSelectable){
+        ro = ro || !isPink;
+      }else{
+        ro = true;
+      }
+    }
     input.readOnly = ro;
     input.tabIndex = state.useCustomKB ? -1 : 0;
 
@@ -5037,6 +5258,141 @@ function renderGrid(stealFocus=true){
 /* =======================
    Hints: sequential button
    ======================= */
+
+function clearHintAutomation(){
+  if(state.hintTimer1) clearTimeout(state.hintTimer1);
+  if(state.hintTimer2) clearTimeout(state.hintTimer2);
+  if(state.hintProgressTO) clearTimeout(state.hintProgressTO);
+  state.hintTimer1 = null;
+  state.hintTimer2 = null;
+  state.hintProgressTO = null;
+}
+function resetHintAutomation(){
+  clearHintAutomation();
+  state.hintTimelineActive = false;
+  state.hintTimelineStage = 0;
+  state.hintTimelineStart = 0;
+  state.hintStageStartedAt = 0;
+  state.hintPinkSelectable = false;
+  state.hintHighlight = false;
+  state.lockedLetters = {};
+  setHintProgressFill(0);
+}
+function setHintProgressFill(pct){
+  const clamped = clamp(Math.round(pct || 0), 0, 100);
+  if(el.hintsBtn) el.hintsBtn.style.setProperty('--hint-fill', `${clamped}%`);
+}
+function tickHintProgress(){
+  if(state.finished){ clearHintAutomation(); return; }
+  const now = Date.now();
+  let pct = 0;
+  if(state.hintTimelineActive){
+    if(state.hintTimelineStage >= 2){
+      pct = 100;
+    }else{
+      const stageStart = state.hintStageStartedAt || state.hintTimelineStart || now;
+      const dur = (state.hintTimelineStage < 1) ? HINT_STAGE_ONE_MS : HINT_STAGE_TWO_MS;
+      pct = clamp(((now - stageStart) / dur) * 100, 0, 100);
+    }
+  }
+  setHintProgressFill(pct);
+  updateHintButtonLabel();
+  state.hintProgressTO = setTimeout(tickHintProgress, 400);
+}
+function wipeGridForHint(opts={}){
+  const preserveLocked = !!opts.preserveLocked;
+  const lockedCopy = preserveLocked ? {...(state.lockedLetters || {})} : {};
+  state.placed = { w1:null, w2:null };
+  state.singles = [];
+  state.bank = [];
+  if(preserveLocked){
+    state.lockedLetters = lockedCopy;
+  }else{
+    state.lockedLetters = {};
+  }
+  state.focusIdx = clamp(HINT_PINK_CELLS[0] || 0, 0, getN()-1);
+}
+function startHintTimeline(){
+  state.hintTimelineActive = true;
+  state.hintTimelineStart = Date.now();
+  state.hintStageStartedAt = state.hintTimelineStart;
+  state.hintTimelineStage = 0;
+  state.hintHighlight = false;
+  state.hintPinkSelectable = false;
+
+  clearHintAutomation();
+  state.hintTimer1 = setTimeout(handleTimedHintStageOne, HINT_STAGE_ONE_MS);
+  state.hintTimer2 = setTimeout(handleTimedHintStageTwo, HINT_STAGE_ONE_MS + HINT_STAGE_TWO_MS);
+  tickHintProgress();
+}
+function ensureHintTimersAfterRestore(){
+  if(!state.hintTimelineActive) return;
+  clearHintAutomation();
+  const now = Date.now();
+  const start = state.hintTimelineStart || now;
+  const elapsed = Math.max(0, now - start);
+  if(state.hintTimelineStage < 1){
+    const d1 = Math.max(0, HINT_STAGE_ONE_MS - elapsed);
+    state.hintTimer1 = setTimeout(handleTimedHintStageOne, d1);
+  }
+  if(state.hintTimelineStage < 2){
+    const target = HINT_STAGE_ONE_MS + HINT_STAGE_TWO_MS;
+    const d2 = Math.max(0, target - elapsed);
+    state.hintTimer2 = setTimeout(handleTimedHintStageTwo, d2);
+  }
+  state.hintProgressTO = setTimeout(tickHintProgress, 200);
+
+  if(elapsed >= HINT_STAGE_ONE_MS && state.hintTimelineStage < 1){
+    handleTimedHintStageOne();
+  }
+  if(elapsed >= HINT_STAGE_ONE_MS + HINT_STAGE_TWO_MS && state.hintTimelineStage < 2){
+    handleTimedHintStageTwo();
+  }
+}
+function handleTimedHintStageOne(){
+  state.hintsUsed.w1 = true;
+  state.hintCount = Math.max(state.hintCount || 0, 1);
+  state.hintTimelineStage = Math.max(state.hintTimelineStage, 1);
+  state.hintStageStartedAt = Date.now();
+  state.hintTimer1 = null;
+  state.hintHighlight = true;
+  state.hintPinkSelectable = false;
+  wipeGridForHint({ preserveLocked:true });
+  saveInProgressForCurrentPuzzle();
+  renderSmart();
+}
+function handleTimedHintStageTwo(){
+  skillStartNewSegmentAfterHint();
+  state.hintsUsed.w2 = true;
+  state.hintCount = Math.max(state.hintCount || 0, 2);
+  state.hintTimelineStage = Math.max(state.hintTimelineStage, 2);
+  state.hintStageStartedAt = Date.now();
+  state.hintTimer2 = null;
+  state.hintHighlight = true;
+  state.hintPinkSelectable = true;
+  wipeGridForHint({ preserveLocked:true });
+  saveInProgressForCurrentPuzzle();
+  renderSmart();
+}
+function revealFinalLockedLetter(){
+  const p = current();
+  ensurePuzzleDerived(p);
+  const ans = p._ans || norm(p.answer);
+  for(const idx of HINT_PINK_CELLS){
+    if(lockedLetterAt(idx)) continue;
+    const ch = ans[idx] || "";
+    if(ch){
+      state.lockedLetters[idx] = ch;
+      break;
+    }
+  }
+  state.hintTimelineActive = false;
+  state.hintTimelineStage = Math.max(state.hintTimelineStage, 3);
+  state.hintHighlight = true;
+  clearHintAutomation();
+  setHintProgressFill(100);
+}
+
 function nextHintStage(){
   if(!state.hintsUsed.w1) return 1;
   if(!state.hintsUsed.w2) return 2;
@@ -5049,7 +5405,20 @@ function updateHintButtonLabel(){
     return;
   }
   const st = nextHintStage();
-  el.hintsBtn.textContent = (st === 1) ? "hint 1" : (st === 2) ? "hint 2" : (st === 3) ? "hint 3" : "give up";
+  let label = (st === 1) ? "hint 1" : (st === 2) ? "hint 2" : (st === 3) ? "hint 3" : "give up";
+
+  if(timedHintActive() && st <= 3){
+    const now = Date.now();
+    const stageStart = state.hintStageStartedAt || state.hintTimelineStart || now;
+    const dur = (st === 2) ? HINT_STAGE_ONE_MS : (st === 3 ? HINT_STAGE_TWO_MS : HINT_STAGE_ONE_MS);
+    const remaining = Math.max(0, dur - (now - stageStart));
+    const sec = Math.round(remaining / 1000);
+    label = (st === 3)
+      ? `hint 3`
+      : `auto hint ${st} (${sec}s)`;
+  }
+
+  el.hintsBtn.innerHTML = `<span>${label}</span>`;
 }
 function applyHint(id){
   if(state.finished) return;
@@ -5059,11 +5428,10 @@ function applyHint(id){
 
     skillStartNewSegmentAfterHint();
     state.hintsUsed.w1 = true;
-    state.hintCount += 1;
+    state.hintCount = Math.max(state.hintCount || 0, 1);
+    startHintTimeline();
 
     saveInProgressForCurrentPuzzle();
-
-    scheduleHintFly('w1');
     renderSmart();
     return;
   }
@@ -5071,30 +5439,23 @@ function applyHint(id){
   if(id === HINT_IDS.w2){
     if(state.hintsUsed.w2) return;
     if(!state.hintsUsed.w1) return;
+    if(state.hintTimelineStage < 1) return;
 
     skillStartNewSegmentAfterHint();
-    state.hintsUsed.w2 = true;
-    state.hintCount += 1;
-
-    saveInProgressForCurrentPuzzle();
-
-    scheduleHintFly('w2');
-    renderSmart();
+    handleTimedHintStageTwo();
     return;
   }
 
   if(id === HINT_IDS.extras){
     if(state.hintsUsed.extras) return;
-    if(!extrasUnlocked()) return;
+    if(state.hintTimelineStage < 2) return;
 
     skillStartNewSegmentAfterHint();
     state.hintsUsed.extras = true;
-    state.hintCount += 1;
-    if(state.bank.length === 0) rebuildBank();
+    state.hintCount = Math.max(state.hintCount || 0, 3);
+    revealFinalLockedLetter();
 
     saveInProgressForCurrentPuzzle();
-
-    scheduleHintFly('extras');
     renderSmart();
     return;
   }
@@ -5339,6 +5700,11 @@ function render(stealFocus=true){
   el.wrap.classList.toggle('solved', state.finished);
   el.wrap.classList.toggle('gaveup', state.gaveUp);
 
+  if(state.finished){
+    state.hintTimelineActive = false;
+    clearHintAutomation();
+  }
+
   renderGrid(stealFocus);
 
   const [t1, t2] = splitClueTwoWords(p.clue);
@@ -5385,6 +5751,8 @@ function resetAllForPuzzle(){
   state.gaveUp = false;
   el.wrap.classList.remove('solved','gaveup');
 
+  resetHintAutomation();
+
   resetEnhancedForNewPuzzle();
 
   const badgeVal = document.getElementById('skillBadgeValue');
@@ -5409,7 +5777,14 @@ function resetAllForPuzzle(){
   state.sel1 = null;
   state.sel2 = null;
 
+  // timed reveal
+  state.trElapsedMs = 0;
+  state.trStage = 0;
+  state.trPickActive = false;
+  state.trLocked = {};
+
   setMsg("");
+
   state.overlapMsgOn = false;
   state.lockMsg = false;
 
