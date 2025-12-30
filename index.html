@@ -4520,24 +4520,7 @@ function firstTrigramOfWord(group){
   return w.slice(0, 3);
 }
 
-function cyclePlacedTrigram(group, opts = {}){
-  if(!flags().allowClueTapCycle) return;
-  if(state.finished) return;
 
-  const pl = state.placed[group];
-  if(!pl) return;
-
-  const p = current();
-  const w = (group === 'w1') ? p._w1 : p._w2;
-  const maxStart = Math.max(0, w.length - 3);
-  if(maxStart === 0) return;
-
-  const countCycle = (opts.countCycle !== false);
-  if(countCycle){
-    state.cycleCount = (state.cycleCount || 0) + 1;
-    if(state.hintsUsed.w1) state.postHint1Cycles = (state.postHint1Cycles || 0) + 1;
-    else state.preHint1Cycles = (state.preHint1Cycles || 0) + 1;
-  }
 
   const curTri = norm(pl.tri);
   const curPos = w.indexOf(curTri);
@@ -4552,12 +4535,7 @@ function cyclePlacedTrigram(group, opts = {}){
   const tri = w.slice(s, s+3);
   placeTrigram(group, tri);
 }
-function firstTrigramOfWord(group){
-  const p = current();
-  const w = (group === 'w1') ? p._w1 : p._w2;
-  if(w.length < 3) return null;
-  return w.slice(0, 3);
-}
+
 
 /* =======================
    Hint track UI
