@@ -3714,10 +3714,14 @@ function setResultSkillMsg(line1, skill){
   void el.msg.offsetWidth;
   el.msg.classList.add('show','result');
 }
-function onCheck(){
+function onCheck(ev){
   if(state.finished) return;
   if(state.modalOpen) return;
-      if(timedHintActive() && !canEditIndex(i)){ e.preventDefault(); return; }
+  // When timed-reveal locking is active, ignore accidental taps on Check
+  if(timedHintActive() && !canEditIndex(state.focusIdx)){
+    ev?.preventDefault();
+    return;
+  }
   clearTransientOnAnyChange();
 
   const n = getN();
